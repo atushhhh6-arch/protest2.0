@@ -1,37 +1,36 @@
 # Protest 2.0
 
-Independent creator sponsorship website for Ayush's T-shirt project.
+Complete static website for Ayush's independent T-shirt sponsorship project, including the front/back image, X profile image, interactive placements, and all four policy pages.
 
-## Current layout
+## Run and build
 
-- 12 sponsor placements total
-- Front: F01–F07
-- Back: B01–B05
-- Chest / upper spots: $200
-- Centre rectangle: $350
-- Lower spots: $150
-- Front sleeves: $100
-- Takeover minimum: 2× the current winning payment
-- Previous sponsor receives a full refund after a successful takeover
-- Planned visit shown on the site: 05 Oct 2026 — Jantar Mantar, New Delhi
+Use Node.js 22.16.0 or a compatible newer version. No external packages are required.
 
-## Run
-
-```bash
+```sh
 npm install
-npm run dev
-```
-
-## Build
-
-```bash
 npm run build
+python3 -m http.server 8080 --directory dist
 ```
 
-The production output is in `dist/`.
+Open http://localhost:8080. Edit the website files in `public/` and rebuild to update `dist/`.
 
 ## Deploy
 
-This repository includes a GitHub Pages workflow. In GitHub Settings → Pages, choose **GitHub Actions** as the source.
+Build command: `npm run build`  
+Static output directory: `dist`
 
-The site is static. Sponsor state shown in this source is intentionally initialized with no confirmed sponsors.
+The included `wrangler.jsonc` keeps the Cloudflare project name `protest2-0` and serves `dist/`. All pages and assets can also be served by any static host. Keep the directory structure intact.
+
+## Files
+
+- `public/index.html`: main website.
+- `public/styles.css`: responsive styling and placement overlays.
+- `public/app.js` and `public/auction-core.mjs`: placement interactions and pricing.
+- `public/assets/`: full front/back portrait and X profile image.
+- `public/terms.html`, `public/privacy.html`, `public/refund-policy.html`, `public/content-policy.html`: policy pages.
+
+## Checkout status
+
+Payment checkout is closed in this version. Exploring a placement or preparing a logo does not reserve a spot or collect money. No payment processor, shared auction database, or automated refund service is connected. Connect and verify those services before enabling real purchases.
+
+This repository replaces the previous website implementation with the latest complete Site source (source revision `6fd6d3c525a18766a4ec85f7bb4a3c01f40406c2`).
