@@ -35,8 +35,10 @@ Real payment checkout is not connected in this version. The active **Pay (test)*
 
 This repository replaces the previous website implementation with the latest complete Site source (source revision `6fd6d3c525a18766a4ec85f7bb4a3c01f40406c2`).
 
-## Moderator preview
+## Brand profiles and test checkout
 
-Use **Moderator** in the footer, select a spot, and choose **Set a brand** or **Try example brand**. Click **Pay (test)** to complete a simulated checkout and see the logo on the shirt. You can also open any spot directly; the Moderator panel is optional. Reopen an occupied spot to test a takeover at twice its previous amount.
+Choose an empty spot, enter your brand details and use **Pay (test)**. The brand is applied in this browser without charging money. Your profile appears in the header. Clicking an occupied logo on the T-shirt or poster wall opens a separate sponsor profile with website and X links, active placements, and transaction history. Use **Take over** in that profile to open the bidding form.
 
-The panel can reset a selected spot, all spots, the saved form profile, or everything. **Run checks** verifies pricing, takeovers, reset behavior, image loading and browser storage. All preview records stay in that browser; these controls are not an authenticated live administration service. Exit preview to return to the public view. Real checkout remains closed.
+The logo editor supports dragging, mouse-wheel zoom, two-finger pinch, keyboard movement and zoom, and Fit/Fill controls. The wall shows clickable logos as scattered posters.
+
+**Reset promos** in the footer clears all local profiles, placements and transaction history after confirmation. Test data stays in that browser; real payments and shared bookings require a connected backend.
