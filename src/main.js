@@ -1,4 +1,3 @@
-import './style.css';
 
 const MODEL_IMAGE = './white-tee-front-back.jpg';
 
