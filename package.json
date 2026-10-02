@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "postinstall": "npm run build"
   },
   "engines": {
     "node": "22.16.0"
