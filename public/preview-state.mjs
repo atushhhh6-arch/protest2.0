@@ -28,7 +28,8 @@ export function isWebsiteStorageKey(key){
     LEGACY_STORAGE_KEYS.includes(key)||
     LEGACY_STORAGE_PREFIXES.some(prefix=>key.startsWith(prefix))||
     key.startsWith('protest2.sponsorships.')||
-    key.startsWith('protest2.');
+    key.startsWith('protest2.')||
+    key.startsWith('protest2-');
 }
 
 export function clearWebsiteStorage(storage){
