@@ -37,8 +37,8 @@ This repository replaces the previous website implementation with the latest com
 
 ## Brand profiles and test checkout
 
-Choose an empty spot, enter your brand details and use **Pay (test)**. The brand is applied in this browser without charging money. Your profile appears in the header. Clicking an occupied logo on the T-shirt or poster wall opens a separate sponsor profile with website and X links, active placements, and transaction history. Use **Take over** in that profile to open the bidding form.
+Choose an empty spot, enter your brand details and use **Pay (test)**. The brand is applied in this browser without charging money. The header always says My Profile; this separate screen lists all local brands, owned positions and complete transaction history, and supports editing saved profiles. Clicking an occupied logo on the T-shirt or poster wall opens a separate sponsor profile with website and X links, active placements, and transaction history. Use **Take over** in that profile to open the bidding form.
 
-The logo editor supports dragging, mouse-wheel zoom, two-finger pinch, keyboard movement and zoom, and Fit/Fill controls. The wall shows clickable logos as scattered posters.
+The logo editor supports dragging, mouse-wheel zoom, two-finger pinch, keyboard movement and zoom, and Fit/Fill controls. The wall shows clickable logos with brand names and positions in a clean grid. Front/back auction lists update immediately on claims and takeovers. Sponsor cards use the supplied dark maroon reference, with clickable author handles, website links, sponsorship amounts and measured browser-local profile views. The landing page starts with Ayush’s avatar/name and the interactive shirt images.
 
 **Reset promos** in the footer clears all local profiles, placements and transaction history after confirmation. Test data stays in that browser; real payments and shared bookings require a connected backend.
