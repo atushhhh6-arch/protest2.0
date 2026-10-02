@@ -1,6 +1,6 @@
 import './style.css';
 
-const MODEL_IMAGE = './white-tee-front-back.png';
+const MODEL_IMAGE = './white-tee-front-back.jpg';
 
 const slots = {
   front: [
