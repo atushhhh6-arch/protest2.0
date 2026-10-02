@@ -34,3 +34,30 @@
 @media(max-width:900px){.creator-header{padding:15px 20px;gap:16px}.creator-header nav{display:none}.header-actions{margin-left:auto}.compact-hero{padding-top:26px}.hero-placements .model-grid{max-width:760px;gap:18px}.directory-columns{gap:15px}.directory-row{padding:15px}.directory-row p{padding-left:0}}
 @media(max-width:600px){.creator-header{padding:12px 15px;min-height:72px;gap:10px}.creator-brand{font-size:17px;gap:8px}.creator-brand img{width:34px;height:34px}.creator-brand small{font-size:8px}.header-actions{gap:12px}.header-actions .nav-profile{font-size:12px}.header-actions>.button{display:none}.compact-hero{padding:22px 16px 8px}.hero-edition{font-size:10px;margin-bottom:14px}.compact-hero h1{font-size:34px;line-height:1.12;margin-bottom:14px}.mobile-break{display:block}.hero-lead{font-size:14px;line-height:1.8}.hero-placements{padding-left:14px!important;padding-right:14px!important}.hero-placements .model-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.hero-placements .model-title{padding:8px 3px}.hero-placements .model-title span{font-size:9px}.hero-placements .model-footer{display:none}.hero-placements .portrait-stage{border-radius:8px}.hero-placements .view-switch{margin-bottom:10px}.hero-placements .auction-summary{margin-top:22px}.directory-columns{grid-template-columns:1fr}.directory-row-head>strong{font-size:14px}.directory-status{max-width:50%}.directory-row p{padding-left:34px}.sponsors-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px 13px;padding:12px 0}.wall-logo-frame{height:85px}.wall-logo img{max-height:85px}.wall-logo>strong{font-size:14px}.wall-logo>span{font-size:11px}.sponsor-topline{padding:26px 65px 12px 23px}.sponsor-reference .profile-body{padding:8px 22px 25px}.sponsor-reference .profile-avatar{height:140px;width:140px;margin:20px auto 25px}.sponsor-reference h2{font-size:26px}.sponsored-price>strong{font-size:38px}#spot-dialog{padding:32px 23px}.account-dialog{padding:30px 21px}.account-dialog h2{font-size:30px}.account-stats{padding:14px;gap:7px}.account-stats strong{font-size:21px}.account-stats span{font-size:11px}.sponsor-wall .section-head{display:block}.sponsor-wall .section-head>p{margin-top:14px}}
 @media(prefers-reduced-motion:reduce){.wall-logo.new-claim{animation:none!important}}
+
+
+/* Sponsor popup/profile reset refinements — 2026-10-02 */
+.sponsor-reference{max-height:min(86dvh,760px);overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:24px}
+.sponsor-topline span::before,.sponsor-topline span::after{content:none}
+.sponsor-reference .profile-body{padding-bottom:28px}
+.sponsor-reference .profile-avatar{margin-bottom:24px}
+.sponsor-website{display:inline-flex;align-items:center;justify-content:center;margin:0 auto 22px;color:#ff8d74;text-underline-offset:4px;font-size:14px;overflow-wrap:anywhere;max-width:100%}
+.sponsor-website[hidden]{display:none!important}
+.account-dialog{max-height:min(90dvh,860px);overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:32px}
+.account-dialog h2{padding-top:2px}
+.account-brand-description{font-size:13px!important;line-height:1.55;color:#d2b5ab!important;margin:4px 0 2px;overflow-wrap:anywhere}
+.account-brand-meta{display:flex;gap:14px;flex-wrap:wrap;margin:2px 0 5px}
+.account-brand-meta .profile-link{padding:0;border:0;background:none;color:#ffb7a4;font-size:12px;text-decoration:underline}
+.account-empty{display:grid;justify-items:center;gap:18px;padding:46px 10px}
+.account-empty .button{margin-top:0}
+@media(max-width:600px){
+  .sponsor-reference,.account-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px);border-radius:20px}
+  .sponsor-reference .profile-body{padding:8px 18px 22px}
+  .sponsor-reference .profile-avatar{width:132px;height:132px;margin:16px auto 20px}
+  .sponsor-topline{padding:22px 58px 8px 20px}
+  .account-dialog{padding:28px 18px 32px}
+  .account-dialog h2{font-size:30px;line-height:1.15}
+  .account-brand{align-items:flex-start}
+  .account-brand>img{width:56px;height:56px;flex:0 0 auto}
+  .account-stats{grid-template-columns:repeat(3,minmax(0,1fr));padding:12px 10px}
+}
