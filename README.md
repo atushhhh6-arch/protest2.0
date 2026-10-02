@@ -31,14 +31,19 @@ The included `wrangler.jsonc` keeps the Cloudflare project name `protest2-0` and
 
 ## Checkout status
 
-Real payment checkout is not connected in this version. The active **Pay (test)** button completes a browser-local test transaction, shows a success receipt and applies the brand; it never collects money or reserves a real spot. No payment processor, shared auction database, or automated refund service is connected. Connect and verify those services before enabling real purchases.
+Real payment checkout is not connected in this version. The development checkout applies a sponsorship locally so the logo, profile, wall, auction lists and takeover rules can be tested; it never collects money or creates a verified real booking. No payment processor, shared auction database, cross-visitor real-time synchronization, or automated refund service is connected. Connect and verify those services before enabling real purchases.
 
-This repository replaces the previous website implementation with the latest complete Site source (source revision `6fd6d3c525a18766a4ec85f7bb4a3c01f40406c2`).
+This repository preserves the existing T-shirt photos, placement geometry, pricing and direct-manipulation logo editor.
 
-## Brand profiles and test checkout
+## Brand profiles and development flow
 
-Choose an empty spot, enter your brand details and use **Pay (test)**. The brand is applied in this browser without charging money. The header always says My Profile; this separate screen lists all local brands, owned positions and complete transaction history, and supports editing saved profiles. Clicking an occupied logo on the T-shirt or poster wall opens a separate sponsor profile with website and X links, active placements, and transaction history. Use **Take over** in that profile to open the bidding form.
+Choose an empty spot, enter the brand details, upload/adjust the logo and apply the development placement. The header action always stays **My Profile**. That account screen separately lists saved brand details, active positions, sponsorship amounts and transaction/takeover history, and supports editing saved profiles.
 
-The logo editor supports dragging, mouse-wheel zoom, two-finger pinch, keyboard movement and zoom, and Fit/Fill controls. The wall shows clickable logos with brand names and positions in a clean grid. Front/back auction lists update immediately on claims and takeovers. Sponsor cards use the supplied dark maroon reference, with clickable author handles, website links, sponsorship amounts and measured browser-local profile views. The landing page starts with Ayush’s avatar/name and the interactive shirt images.
+Clicking an occupied logo opens a compact public sponsor card with its placement, recorded device-local views, logo, brand name, linked X handle when supplied, description, website, sponsorship amount and takeover action. The bidding form opens only after choosing that takeover action.
 
-**Reset promos** in the footer clears all local profiles, placements and transaction history after confirmation. Test data stays in that browser; real payments and shared bookings require a connected backend.
+The logo editor supports dragging, mouse-wheel zoom, two-finger pinch, keyboard movement and zoom, and Fit/Fill controls. The logo wall remains a clean grid, while front and back auction lists stay separate and update immediately after a local claim or takeover.
+
+**Reset promos** clears this site's sponsorship-owned local and session state, including current spot owners/logos, saved/selected profiles, placement and takeover history, simulated refund records, recorded views, pending form/editor state, and known legacy Protest 2.0 storage keys. It does not clear unrelated browser data. Reset changes synchronize across open tabs of the same origin through browser storage events and BroadcastChannel where available.
+
+Shared state between different visitors is still not connected. A backend/database is required before different browsers can see the same sponsorships, global view counts, live bookings, payments or refunds.
+
