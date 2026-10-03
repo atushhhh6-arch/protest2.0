@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS assets (
   content_type TEXT NOT NULL,
   size_bytes INTEGER NOT NULL,
   is_public INTEGER NOT NULL DEFAULT 0 CHECK(is_public IN (0,1)),
+  moderation_status TEXT NOT NULL DEFAULT 'pending' CHECK(moderation_status IN ('pending','approved','rejected')),
   created_at TEXT NOT NULL
 );
 
