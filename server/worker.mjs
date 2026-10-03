@@ -1,5 +1,5 @@
 import {ApiError,normalizeBookingInput,normalizeProfileUpdate,validateLogoMeta} from './core.mjs';
-import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,finalizePaidBooking,myBooking,readSettings,recordView,updateSponsorProfile} from './db.mjs';
+import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,markPaymentFailed,finalizePaidBooking,myBooking,readSettings,recordView,updateSponsorProfile} from './db.mjs';
 import {paymentProviderReady,createCheckoutSession,verifyPaymentWebhook,issueRefund} from './payment-provider.mjs';
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{
@@ -192,6 +192,11 @@ async function route(request,env,ctx){
         await finalizePaidBooking(db,{
           bookingId:event.booking_id,provider:event.provider,paymentId:event.payment_id,
           customerId:event.customer_id||'',amountCents:event.amount_cents
+        });
+      }else if(event.type==='payment.failed'){
+        await markPaymentFailed(db,{
+          bookingId:event.booking_id,provider:event.provider,paymentId:event.payment_id,
+          customerId:event.customer_id||''
         });
       }
       await db.prepare("UPDATE payment_events SET status='processed',processed_at=? WHERE provider=? AND event_id=?")
