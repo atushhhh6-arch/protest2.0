@@ -37,7 +37,7 @@ export async function fetchSharedModel(){
     profileId:item.sponsor_id||'',
     amount:Number(item.amount_cents)||0,
     date:item.created_at,
-    previous:item.previous_booking_id?{brand:item.previous_brand_name||'Previous sponsor',amount:0}:null
+    previous:item.previous_booking_id?{brand:item.previous_brand_name||'Previous sponsor',amount:Number(item.previous_amount_cents)||0}:null
   }));
   return {
     available:true,
@@ -108,4 +108,16 @@ export async function createPaymentSession(bookingId,manageToken){
   const data=await response.json().catch(()=>({ok:false,message:'Backend returned an invalid response.'}));
   if(!response.ok||!data.ok)throw new Error(data.message||'Could not start payment.');
   return data;
+}
+
+
+export async function updateOwnedProfile(manageToken,profile){
+  const response=await fetch('/api/me/profile',{
+    method:'PATCH',
+    headers:{authorization:'Bearer '+manageToken,'content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify(profile)
+  });
+  const data=await response.json().catch(()=>({ok:false,message:'Backend returned an invalid response.'}));
+  if(!response.ok||!data.ok)throw new Error(data.message||'Could not update sponsor profile.');
+  return data.sponsor;
 }
