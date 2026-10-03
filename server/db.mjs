@@ -21,7 +21,7 @@ export async function publicState(db){
   `).all();
   const {results:activity=[]}=await db.prepare(`
     SELECT a.id,a.event_type,a.slot_id,a.sponsor_id,a.booking_id,a.amount_cents,
-           a.previous_booking_id,a.previous_brand_name,a.created_at,
+           a.previous_booking_id,a.previous_brand_name,a.previous_amount_cents,a.created_at,
            s.brand_name
     FROM activity a
     LEFT JOIN sponsors s ON s.id=a.sponsor_id
@@ -72,6 +72,8 @@ export async function createBookingHold(db,input,{bookingId,tokenHash,holdMinute
   let result;
   try{
     result=await db.batch([
+      db.prepare("UPDATE bookings SET status='expired',updated_at=? WHERE status IN ('pending','checkout_created') AND hold_expires_at<=?")
+        .bind(now.toISOString(),now.toISOString()),
       db.prepare('DELETE FROM spot_holds WHERE slot_id=? AND expires_at<=?').bind(input.slotId,now.toISOString()),
       db.prepare(`
         INSERT INTO bookings(
@@ -100,7 +102,7 @@ export async function createBookingHold(db,input,{bookingId,tokenHash,holdMinute
     if(String(error).toLowerCase().includes('unique'))throw new ApiError(409,'SPOT_BUSY','Someone else is checking out this spot. Try again shortly.');
     throw error;
   }
-  const inserted=Number(result?.[1]?.meta?.changes)||0;
+  const inserted=Number(result?.[2]?.meta?.changes)||0;
   if(!inserted){
     const fresh=await db.prepare('SELECT * FROM placements WHERE slot_id=?').bind(input.slotId).first();
     const latestSettings=await readSettings(db);
@@ -162,13 +164,17 @@ export async function finalizePaidBooking(db,{bookingId,provider,paymentId,custo
             AND p.print_locked=0
             AND bookings.amount_cents>=CASE WHEN COALESCE(p.current_amount_cents,0)>0 THEN p.current_amount_cents*2 ELSE p.base_cents END
         )
+        AND EXISTS(
+          SELECT 1 FROM assets a
+          WHERE a.id=bookings.logo_asset_id AND a.moderation_status='approved'
+        )
         AND NOT EXISTS(
           SELECT 1 FROM settings
           WHERE key='print_lock_at' AND value<>'' AND value<=?
         )
     `).bind(provider,paymentId,customerId,now.toISOString(),bookingId,now.toISOString(),now.toISOString()),
     db.prepare(`
-      INSERT INTO activity(id,event_type,slot_id,sponsor_id,booking_id,amount_cents,previous_booking_id,previous_brand_name,created_at)
+      INSERT INTO activity(id,event_type,slot_id,sponsor_id,booking_id,amount_cents,previous_booking_id,previous_brand_name,previous_amount_cents,created_at)
       SELECT ?, CASE WHEN p.current_booking_id IS NULL THEN 'placement' ELSE 'takeover' END,
              b.slot_id, ?, b.id, b.amount_cents, p.current_booking_id, s.brand_name, COALESCE(p.current_amount_cents,0), ?
       FROM bookings b
@@ -244,4 +250,17 @@ export async function recordView(db,{sponsorId,viewerHash,day,now=new Date()}){
     return {tracked:true};
   }
   return {tracked:false};
+}
+
+
+export async function updateSponsorProfile(db,tokenHash,profile,now=new Date()){
+  const booking=await bookingForToken(db,tokenHash);
+  if(!booking.sponsor_id||booking.status!=='paid')throw new ApiError(409,'PROFILE_NOT_ACTIVE','A paid sponsorship is required to edit this profile.');
+  await db.prepare(`
+    UPDATE sponsors
+    SET owner_name=?,description=?,website=?,x_handle=?,updated_at=?
+    WHERE id=? AND status='active'
+  `).bind(profile.ownerName,profile.description,profile.website,profile.xHandle,now.toISOString(),booking.sponsor_id).run();
+  return db.prepare('SELECT id,status,owner_name,brand_name,description,website,x_handle,views FROM sponsors WHERE id=?')
+    .bind(booking.sponsor_id).first();
 }
