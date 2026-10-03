@@ -74,8 +74,11 @@ async function viewerHash(request,env){
   return hash([env.VIEW_HASH_SALT,ip,ua,day].join('|'));
 }
 
-const automaticTestRefundsEnabled=env=>
-  env.AUTO_REFUNDS_TEST_MODE==='true'&&env.DODO_ENVIRONMENT==='test_mode';
+const automaticRefundsEnabled=env=>{
+  if(env.DODO_ENVIRONMENT==='test_mode')return env.AUTO_REFUNDS_TEST_MODE==='true';
+  if(env.DODO_ENVIRONMENT==='live_mode')return env.AUTO_REFUNDS_LIVE_MODE==='true';
+  return false;
+};
 
 const refundDbStatus=status=>{
   if(status==='succeeded')return 'succeeded';
@@ -286,7 +289,7 @@ async function route(request,env,ctx){
           bookingId:event.booking_id,provider:event.provider,paymentId:event.payment_id,
           customerId:event.customer_id||'',amountCents:event.amount_cents
         });
-        if(automaticTestRefundsEnabled(env)){
+        if(automaticRefundsEnabled(env)){
           refundResult=await processRefundQueue(db,env,{sourceBookingId:event.booking_id});
         }
       }else if(event.type==='payment.failed'){
