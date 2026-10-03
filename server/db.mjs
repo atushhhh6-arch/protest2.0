@@ -265,15 +265,16 @@ export async function myBooking(db,tokenHash){
 }
 
 export async function recordView(db,{sponsorId,viewerHash,day,now=new Date()}){
-  if(!viewerHash)return {tracked:false};
+  if(!viewerHash)return {tracked:false,views:0};
   const id=sponsorId+':'+viewerHash+':'+day;
   const insert=await db.prepare('INSERT OR IGNORE INTO view_events(id,sponsor_id,viewer_hash,day,created_at) VALUES(?,?,?,?,?)')
     .bind(id,sponsorId,viewerHash,day,now.toISOString()).run();
-  if(Number(insert.meta?.changes)||0){
+  const tracked=Boolean(Number(insert.meta?.changes)||0);
+  if(tracked){
     await db.prepare("UPDATE sponsors SET views=views+1,updated_at=? WHERE id=? AND status='active'").bind(now.toISOString(),sponsorId).run();
-    return {tracked:true};
   }
-  return {tracked:false};
+  const sponsor=await db.prepare("SELECT views FROM sponsors WHERE id=? AND status='active'").bind(sponsorId).first();
+  return {tracked,views:Number(sponsor?.views)||0};
 }
 
 
