@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeBookingInput,minimumForPlacement,validateLogoMeta,ApiError} from './core.mjs';
+import {normalizeBookingInput,normalizeProfileUpdate,minimumForPlacement,validateLogoMeta,ApiError} from './core.mjs';
 
 test('normalizes a valid booking',()=>{
   const result=normalizeBookingInput({
@@ -24,4 +24,11 @@ test('computes takeover minimum',()=>{
 test('validates logo limits',()=>{
   assert.doesNotThrow(()=>validateLogoMeta('image/png',1024));
   assert.throws(()=>validateLogoMeta('image/gif',1024),ApiError);
+});
+
+
+test('normalizes profile updates',()=>{
+  const result=normalizeProfileUpdate({owner_name:'Owner',description:'Updated',website:'https://example.com',x_handle:'brand'});
+  assert.equal(result.xHandle,'@brand');
+  assert.equal(result.description,'Updated');
 });
