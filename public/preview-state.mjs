@@ -98,7 +98,7 @@ export function loadPreview(storage){
     if(m.profiles&&typeof m.profiles!=='object')throw Error();
     if(m.profileViews&&typeof m.profileViews!=='object')throw Error();
   }catch{
-    throw Error('Saved sponsorship data could not be read. Use Reset promos to clear it.');
+    throw Error('Saved sponsorship data could not be read. Clear this site’s stored data in your browser settings and reload.');
   }
   const migrated=migrateProfiles(m);
   return {

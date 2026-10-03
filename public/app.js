@@ -1,15 +1,14 @@
 import {placements,money,parseAmount,minimum,total} from './auction-core.mjs';
-import {STORAGE_KEY,freshPreview,loadPreview,savePreview,applyPreview,profileKey,profileActivity,recordProfileView,editSavedProfile,safeWebsite,clearWebsiteStorage,isWebsiteStorageKey} from './preview-state.mjs';
+import {freshPreview,profileKey,profileActivity,recordProfileView,editSavedProfile,safeWebsite,clearWebsiteStorage} from './preview-state.mjs';
 import {createLogoEditor} from './logo-editor.mjs';
 const $=s=>document.querySelector(s);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement';
 const seenProfiles=new Set();
-const syncChannel='BroadcastChannel' in window?new BroadcastChannel('protest2-sponsorship-sync-v1'):null;
-try{model=loadPreview(localStorage);if(!localStorage.getItem(STORAGE_KEY)&&(Object.keys(model.auction.spots).length||model.profile||Object.keys(model.profiles||{}).length||model.auction.history.length))savePreview(localStorage,model);}catch(e){storageProblem=e.message;}
+try{clearWebsiteStorage(localStorage);clearWebsiteStorage(sessionStorage);}catch{}
 const state=()=>model.auction;
 function show(dialog,origin){dialog._opener=origin||document.activeElement;if(!dialog.open)dialog.showModal();dialog.scrollTop=0;requestAnimationFrame(()=>{dialog.scrollTop=0;});document.body.classList.add('modal-open');}
-function commit(next){try{savePreview(localStorage,next);storageProblem='';}catch{storageProblem='Browser storage is full or unavailable. These changes may not survive a refresh.';}model=next;render();return !storageProblem;}
+function commit(next){model=next;storageProblem='';render();return true;}
 function link(text,href){const a=el('a',text,'profile-link');a.href=href;a.target='_blank';a.rel='noopener noreferrer';return a;}
 function linksFor(profile,target){target.replaceChildren();if(profile.website){try{const url=new URL(profile.website);if(['http:','https:'].includes(url.protocol))target.append(link(url.hostname.replace(/^www\./,''),url.href));}catch{}}}
 function imageFor(p){const img=el('img');img.src=p.logo;img.alt=p.brand+' logo';return img;}
@@ -138,72 +137,21 @@ $('#account-add-spot').onclick=()=>{$('#account-dialog').close();$('#spots').scr
 function openEdit(p,origin){editingKey=profileKey(p);editLogo=p.logo;$('#edit-owner').value=p.owner||'';$('#edit-brand').value=p.brand;$('#edit-description').value=p.description;$('#edit-website').value=p.website||'';$('#edit-x').value=p.x||'';$('#edit-logo-preview').src=p.logo;$('#edit-logo-upload').value='';$('#edit-error').textContent='';show($('#edit-profile-dialog'),origin);}
 $('#edit-profile-form').onsubmit=e=>{e.preventDefault();try{if(uploadPending)throw Error('Wait for your logo to finish loading.');if(!$('#edit-profile-form').reportValidity())return;const next=editSavedProfile(model,editingKey,{brand:$('#edit-brand').value,owner:$('#edit-owner').value,description:$('#edit-description').value,website:$('#edit-website').value,x:$('#edit-x').value,logo:editLogo});commit(next);$('#edit-profile-dialog').close();openAccount();if(storageProblem)$('#preview-feedback').textContent=storageProblem;}catch(error){$('#edit-error').textContent=error.message;}};
 $('#edit-logo-upload').onchange=()=>{const file=$('#edit-logo-upload').files[0];$('#edit-logo-upload').value='';if(!file)return;editor.clear();if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5*1024*1024){$('#edit-error').textContent='Choose a PNG, JPG or WebP smaller than 5 MB.';return;}cropTarget='profile';const request=++uploadTicket;uploadPending=true;$('#edit-save').disabled=true;const reader=new FileReader();reader.onload=()=>{if(request===uploadTicket)editor.open(reader.result,{name:'Profile logo',ratio:1},$('#edit-logo-upload'));};reader.onerror=()=>{if(request===uploadTicket){uploadPending=false;$('#edit-save').disabled=false;$('#edit-error').textContent='Could not read that image.';}};reader.readAsDataURL(file);};
-function updatePay(){let label='Apply development placement';try{label='Apply '+money(parseAmount($('#bid-amount').value))+' placement';}catch{}$('#submit-bid').textContent=uploadPending?'Loading logo…':label;$('#submit-bid').disabled=uploadPending;}
+function updatePay(){const button=$('#submit-bid');button.textContent='Bookings opening soon';button.disabled=true;}
 function previewLogo(){const p=$('#crop-preview');p.hidden=!logo;$('#cropped-logo').src=logo||'';}
 const editor=createLogoEditor({onSave:(result,source)=>{if(cropTarget==='profile'){editLogo=result;$('#edit-logo-preview').src=result;return;}logo=result;logoSource=source;previewLogo();$('#bid-error').textContent='';},onBusy:value=>{uploadPending=value;$('#edit-save').disabled=value;updatePay();},onError:message=>$(cropTarget==='profile'?'#edit-error':'#bid-error').textContent=message,openDialog:show});
 function clearLogo(){++uploadTicket;editor.clear();logo='';logoSource='';$('#logo-upload').value='';previewLogo();}
 function fillProfile(p){if(!p)return;$('#owner-name').value=p.owner||'';$('#brand').value=p.brand;$('#description').value=p.description;$('#website').value=p.website||'';$('#x-handle').value=p.x||'';logo=p.logo;logoSource=p.logo;previewLogo();}
-function openSpot(id,origin){cropTarget='placement';selected=id;expectedOwner=model.auction.spots[id]?.id??null;$('#bid-form').reset();clearLogo();const p=placements[id],current=model.auction.spots[id];$('#dialog-code').textContent=id+' / '+p.location;$('#dialog-title').textContent=current?'Make it yours.':'Your brand here.';$('#dialog-description').textContent=p.name+' · '+(current?'Take over this placement with your brand.':'Choose your logo and make this space your own.');$('#current-bid').textContent=current?money(current.amount):'Available';$('#minimum-bid').textContent=money(minimum(model.auction,id));$('#bid-amount').value=String(minimum(model.auction,id)/100);$('#bid-error').textContent='';$('#refund-note').hidden=!current;if(current)$('#refund-note').textContent='Development checkout only: '+current.brand+'\'s previous amount of '+money(current.amount)+' is recorded as refundable. No money moves.';$('#placement-preview-note').hidden=false;fillProfile(model.profile);updateAmount();show($('#spot-dialog'),origin);}
+function openSpot(id,origin){cropTarget='placement';selected=id;expectedOwner=model.auction.spots[id]?.id??null;$('#bid-form').reset();clearLogo();const p=placements[id],current=model.auction.spots[id];$('#dialog-code').textContent=id+' / '+p.location;$('#dialog-title').textContent=current?'Make it yours.':'Your brand here.';$('#dialog-description').textContent=p.name+' · '+(current?'Take over this placement with your brand.':'Choose your logo and make this space your own.');$('#current-bid').textContent=current?money(current.amount):'Available';$('#minimum-bid').textContent=money(minimum(model.auction,id));$('#bid-amount').value=String(minimum(model.auction,id)/100);$('#bid-error').textContent='';$('#refund-note').hidden=!current;if(current)$('#refund-note').textContent='A qualifying takeover will replace the current sponsor only after payment is verified, and the previous sponsor will be eligible for a full refund.';$('#placement-preview-note').hidden=false;fillProfile(model.profile);updateAmount();show($('#spot-dialog'),origin);}
 function updateAmount(){updatePay();try{const amount=parseAmount($('#bid-amount').value),min=minimum(model.auction,selected);$('#next-price').textContent='Next takeover: '+money(amount*2);$('#bid-error').textContent=amount<min?'Minimum for this spot: '+money(min):'';}catch(e){$('#next-price').textContent=e.message;}}
 $('#bid-amount').oninput=updateAmount;
 $('#logo-upload').onchange=()=>{cropTarget='placement';const file=$('#logo-upload').files[0];$('#logo-upload').value='';if(!file)return;const request=++uploadTicket;editor.clear();if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5*1024*1024){$('#bid-error').textContent='Choose a PNG, JPG or WebP smaller than 5 MB.';return;}uploadPending=true;updatePay();const reader=new FileReader();reader.onload=()=>{if(request!==uploadTicket)return;editor.open(reader.result,placements[selected],$('#logo-upload'));};reader.onerror=()=>{if(request===uploadTicket){uploadPending=false;updatePay();$('#bid-error').textContent='Could not read this image.';}};reader.readAsDataURL(file);};
 $('#adjust-logo').onclick=()=>{cropTarget='placement';if(logoSource)editor.open(logoSource,placements[selected],$('#adjust-logo'),true);};
-$('#bid-form').onsubmit=e=>{e.preventDefault();try{if(!$('#bid-form').reportValidity())return;if(uploadPending)throw Error('Wait for your logo to load.');if(!logo)throw Error('Choose a logo and press Use this logo.');const next=applyPreview(model,{slot:selected,amount:parseAmount($('#bid-amount').value),profile:{profileId:model.profile&&$('#brand').value.trim()===model.profile.brand&&$('#x-handle').value.trim()===(model.profile.x||'')&&safeWebsite($('#website').value)===(model.profile.website||'')?profileKey(model.profile):undefined,owner:$('#owner-name').value,brand:$('#brand').value,description:$('#description').value,website:$('#website').value,x:$('#x-handle').value.trim(),logo},id:crypto.randomUUID(),date:new Date().toISOString(),expectedOwner});const saved=commit(next);$('#spot-dialog').close();$('#preview-feedback').textContent=next.profile.brand+' is on '+selected+'. Tap its logo to open the profile.';const card=$('#payment-success-brand');card.replaceChildren(imageFor(next.profile),el('h3',next.profile.brand));$('#payment-success-summary').textContent=money(next.auction.spots[selected].amount)+' · '+selected;$('#payment-success-next').textContent='Next takeover: '+money(minimum(next.auction,selected))+'. '+(saved?'Saved in this browser.':storageProblem);show($('#payment-success-dialog'),document.querySelector(`[data-spot="${selected}"]`));}catch(error){$('#bid-error').textContent=error.message;}};
-$('#payment-view-shirt').onclick=()=>{$('#payment-success-dialog').close();revealSpot(selected);};
+$('#bid-form').onsubmit=e=>{e.preventDefault();$('#bid-error').textContent='Bookings are not open yet. Payment checkout must be connected before a spot can be confirmed.';};
 for(const b of document.querySelectorAll('[data-spot]'))b.onclick=()=>{const p=state().spots[b.dataset.spot];if(p)openProfile(p,b,b.dataset.spot);else openSpot(b.dataset.spot,b);};
 for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>{document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));document.querySelectorAll('[data-side]').forEach(card=>card.hidden=button.dataset.view!=='both'&&card.dataset.side!==button.dataset.view);$('.model-grid').classList.toggle('single',button.dataset.view!=='both');};
 for(const dialog of document.querySelectorAll('dialog')){dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});dialog.addEventListener('close',()=>{if(dialog.id==='spot-dialog'&&!dialog.open)clearLogo();if(dialog.id==='edit-profile-dialog'&&!dialog.open){++uploadTicket;editor.clear();}const top=[...document.querySelectorAll('dialog[open]')].at(-1);if(!top)document.body.classList.remove('modal-open');if(dialog._opener?.isConnected&&(!top||top.contains(dialog._opener)))dialog._opener.focus();});}
 function closeAllDialogs(){for(const d of document.querySelectorAll('dialog[open]'))d.close();}
-function clearTransientState(){
-  selected='';expectedOwner=null;profileSlot='';editingKey='';editLogo='';cropTarget='placement';
-  seenProfiles.clear();
-  clearLogo();
-  uploadPending=false;
-  $('#bid-form').reset();
-  $('#edit-profile-form').reset();
-  $('#edit-logo-upload').value='';
-  $('#edit-error').textContent='';
-  $('#bid-error').textContent='';
-}
-function refreshFromStorage(message='',clearSession=false){
-  try{
-    if(clearSession)clearWebsiteStorage(sessionStorage);
-    model=loadPreview(localStorage);
-    storageProblem='';
-    clearTransientState();
-    closeAllDialogs();
-    render();
-    if(message)$('#preview-feedback').textContent=message;
-  }catch(e){
-    storageProblem=e.message;
-    $('#preview-feedback').textContent=e.message;
-  }
-}
-$('#reset-promos').onclick=()=>{$('#reset-error').textContent='';show($('#reset-dialog'),$('#reset-promos'));};
-$('#reset-cancel').onclick=()=>$('#reset-dialog').close();
-$('#reset-confirm').onclick=()=>{
-  try{
-    clearWebsiteStorage(localStorage);
-    clearWebsiteStorage(sessionStorage);
-  }catch{
-    $('#reset-error').textContent='Could not clear this website\'s sponsorship data. Please retry.';
-    return;
-  }
-  model=freshPreview();
-  storageProblem='';
-  clearTransientState();
-  closeAllDialogs();
-  render();
-  $('#preview-feedback').textContent='All sponsorships, profiles, views and takeover history were cleared.';
-  syncChannel?.postMessage({type:'reset'});
-};
-window.addEventListener('storage',event=>{
-  if(event.key!==null&&!isWebsiteStorageKey(event.key))return;
-  refreshFromStorage(event.newValue===null?'Sponsorship data changed in another tab.':'Placements updated in another tab.');
-});
-if(syncChannel)syncChannel.onmessage=event=>{
-  if(event.data?.type==='reset')refreshFromStorage('Sponsorship data was reset in another tab.',true);
-};
 const reelsTrack=$('#reels-track');
 if(reelsTrack){
   const moveReels=direction=>{

@@ -31,19 +31,17 @@ The included `wrangler.jsonc` keeps the Cloudflare project name `protest2-0` and
 
 ## Checkout status
 
-Real payment checkout is not connected in this version. The development checkout applies a sponsorship locally so the logo, profile, wall, auction lists and takeover rules can be tested; it never collects money or creates a verified real booking. No payment processor, shared auction database, cross-visitor real-time synchronization, or automated refund service is connected. Connect and verify those services before enabling real purchases.
+Real payment checkout is not connected yet. The public form is intentionally non-booking: it can be used to review placement details and prepare artwork, but it does not charge money, reserve a spot, or create a confirmed sponsorship. Before enabling purchases, connect a shared backend/database, payment provider, verified webhooks, takeover locking, refund handling, and a production support process.
 
-This repository preserves the existing T-shirt photos, placement geometry, pricing and direct-manipulation logo editor.
+## Brand profiles and pre-launch flow
 
-## Brand profiles and development flow
-
-Choose an empty spot, enter the brand details, upload/adjust the logo and apply the development placement. The header action always stays **My Profile**. That account screen separately lists saved brand details, active positions, sponsorship amounts and transaction/takeover history, and supports editing saved profiles.
+Visitors can inspect the 12 placements and prepare brand details and artwork, but the pre-launch submit action is disabled until real checkout is connected. The sponsor wall, profiles and account views are intended to be driven by verified shared booking data once the backend is live.
 
 Clicking an occupied logo opens a compact public sponsor card with its placement, recorded device-local views, logo, brand name, linked X handle when supplied, description, website, sponsorship amount and takeover action. The bidding form opens only after choosing that takeover action.
 
 The logo editor supports dragging, mouse-wheel zoom, two-finger pinch, keyboard movement and zoom, and Fit/Fill controls. The logo wall remains a clean grid, while front and back auction lists stay separate and update immediately after a local claim or takeover.
 
-**Reset promos** clears this site's sponsorship-owned local and session state, including current spot owners/logos, saved/selected profiles, placement and takeover history, simulated refund records, recorded views, pending form/editor state, and known legacy Protest 2.0 storage keys. It does not clear unrelated browser data. Reset changes synchronize across open tabs of the same origin through browser storage events and BroadcastChannel where available.
+The public reset control and local mock-booking workflow have been removed from the live interface.
 
 Shared state between different visitors is still not connected. A backend/database is required before different browsers can see the same sponsorships, global view counts, live bookings, payments or refunds.
 
