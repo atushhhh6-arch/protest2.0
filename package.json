@@ -11,5 +11,8 @@
   },
   "engines": {
     "node": ">=22.16.0"
+  },
+  "dependencies": {
+    "dodopayments": "^2.52.0"
   }
 }
