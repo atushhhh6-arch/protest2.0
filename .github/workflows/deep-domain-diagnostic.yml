@@ -1,0 +1,42 @@
+name: Deep Domain Diagnostic
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check DNS propagation and TLS paths
+        shell: bash
+        run: |
+          set +e
+          echo "=== Authoritative NS ==="
+          dig +short NS protestayush.lol
+          echo
+          for r in 1.1.1.1 8.8.8.8 9.9.9.9; do
+            echo "=== Resolver $r A ==="
+            dig @$r +short A protestayush.lol
+            echo "=== Resolver $r AAAA ==="
+            dig @$r +short AAAA protestayush.lol
+          done
+          echo
+          echo "=== HTTPS normal ==="
+          curl -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,90p'
+          echo
+          echo "=== HTTPS forced IPv4 ==="
+          curl -4 -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,90p'
+          echo
+          echo "=== HTTPS forced IPv6 ==="
+          curl -6 -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,90p'
+          echo
+          echo "=== Old GoDaddy parking IP 15.197.148.33 with SNI ==="
+          curl -sSvkI --max-time 15 --resolve protestayush.lol:443:15.197.148.33 https://protestayush.lol/ 2>&1 | sed -n '1,100p'
+          echo
+          echo "=== Old GoDaddy parking IP 3.33.130.190 with SNI ==="
+          curl -sSvkI --max-time 15 --resolve protestayush.lol:443:3.33.130.190 https://protestayush.lol/ 2>&1 | sed -n '1,100p'
