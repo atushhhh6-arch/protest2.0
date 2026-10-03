@@ -26,6 +26,7 @@
     "BOOKING_HOLD_MINUTES": "15",
     "PAYMENTS_ENABLED": "false",
     "PAYMENT_PROVIDER": "none",
-    "ALLOW_TEST_PAYMENTS": "false"
+    "ALLOW_TEST_PAYMENTS": "false",
+    "TURNSTILE_REQUIRED": "false"
   }
 }
