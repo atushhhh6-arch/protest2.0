@@ -1,0 +1,37 @@
+name: Delegation Diagnostic
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check current and previous DNS delegation
+        shell: bash
+        run: |
+          set +e
+          echo "=== Parent delegation / TTL ==="
+          dig NS protestayush.lol +noall +answer +authority
+          echo "=== Trace ==="
+          dig +trace NS protestayush.lol | tail -n 50
+          echo "=== OLD GoDaddy ns75 answers ==="
+          dig @ns75.domaincontrol.com protestayush.lol A +noall +answer +authority
+          dig @ns75.domaincontrol.com www.protestayush.lol CNAME +noall +answer +authority
+          echo "=== OLD GoDaddy ns76 answers ==="
+          dig @ns76.domaincontrol.com protestayush.lol A +noall +answer +authority
+          dig @ns76.domaincontrol.com www.protestayush.lol CNAME +noall +answer +authority
+          echo "=== NEW Cloudflare authoritative answers ==="
+          dig @ed.ns.cloudflare.com protestayush.lol A +noall +answer +authority
+          dig @piper.ns.cloudflare.com protestayush.lol A +noall +answer +authority
+          echo "=== Public resolver NS with TTL ==="
+          for r in 1.1.1.1 8.8.8.8 9.9.9.9; do
+            echo "--- $r ---"
+            dig @$r NS protestayush.lol +noall +answer
+            dig @$r A protestayush.lol +noall +answer
+          done
