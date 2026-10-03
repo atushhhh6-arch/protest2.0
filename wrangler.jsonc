@@ -5,7 +5,9 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
   },
   "d1_databases": [
     {
@@ -26,5 +28,11 @@
     "AUTO_APPROVE_LOGOS": "true",
     "AUTO_REFUNDS_TEST_MODE": "true",
     "AUTO_REFUNDS_LIVE_MODE": "true"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "protestayush.lol",
+      "custom_domain": true
+    }
+  ]
 }
