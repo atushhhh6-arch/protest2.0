@@ -20,63 +20,34 @@ jobs:
           for i in $(seq 1 30); do
             HEALTH="$(curl -fsS "$BASE/api/health" 2>/dev/null || true)"
             STATE="$(curl -fsS "$BASE/api/public-state" 2>/dev/null || true)"
-            printf '%s' "$HEALTH" > /tmp/health.json
-            printf '%s' "$STATE" > /tmp/state.json
-            if python3 - <<'PY'
-import json, sys
-try:
-    health=json.load(open('/tmp/health.json'))
-    state=json.load(open('/tmp/state.json'))
-except Exception:
-    sys.exit(1)
 
-ready=(
-    health.get('ok') is True
-    and health.get('database') is True
-    and health.get('payment_provider') is True
-    and health.get('payment_environment') == 'live_mode'
-    and health.get('webhook_configured') is True
-    and health.get('automatic_live_refunds') is True
-    and health.get('bookings_open') is True
-)
-
-placements=state.get('placements') or []
-fresh=(
-    state.get('ok') is True
-    and len(placements) == 12
-    and len(state.get('activity') or []) == 0
-    and all(not row.get('sponsor') for row in placements)
-    and all(int(row.get('current_amount_cents') or 0) == 0 for row in placements)
-    and (state.get('settings') or {}).get('bookings_open') is True
-)
-
-if ready and fresh:
-    print('LIVE_READY')
-    print(json.dumps(health, indent=2))
-    print('Fresh placements:', len(placements), 'activity:', len(state.get('activity') or []))
-    sys.exit(0)
-
-print('Not ready yet')
-print('health=', health)
-print('state_summary=', {
-    'ok': state.get('ok'),
-    'placements': len(placements),
-    'activity': len(state.get('activity') or []),
-    'occupied': sum(1 for row in placements if row.get('sponsor')),
-    'bookings_open': (state.get('settings') or {}).get('bookings_open')
-})
-sys.exit(1)
-PY
-            then
+            if printf '%s' "$HEALTH" | jq -e '
+              .ok == true and
+              .database == true and
+              .payment_provider == true and
+              .payment_environment == "live_mode" and
+              .webhook_configured == true and
+              .automatic_live_refunds == true and
+              .bookings_open == true
+            ' >/dev/null 2>&1 &&
+            printf '%s' "$STATE" | jq -e '
+              .ok == true and
+              (.placements | length) == 12 and
+              (.activity | length) == 0 and
+              ([.placements[] | select(.sponsor != null)] | length) == 0 and
+              ([.placements[] | select((.current_amount_cents // 0) != 0)] | length) == 0 and
+              .settings.bookings_open == true
+            ' >/dev/null 2>&1; then
+              echo "LIVE_READY"
+              echo "$HEALTH" | jq .
+              echo "$STATE" | jq '{placements: (.placements|length), occupied: ([.placements[]|select(.sponsor != null)]|length), activity: (.activity|length), settings}'
               exit 0
             fi
+
+            echo "Attempt $i: production not fully ready yet"
+            echo "$HEALTH" | jq . 2>/dev/null || true
             sleep 10
           done
 
           echo "Production did not become fully ready in time."
-          echo "Health response:"
-          cat /tmp/health.json || true
-          echo
-          echo "State response:"
-          cat /tmp/state.json || true
           exit 1
