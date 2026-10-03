@@ -76,6 +76,36 @@ async function viewerHash(request,env){
   return hash([salt,...identity,day].join('|'));
 }
 
+let freshLaunchResetPromise=null;
+async function ensureFreshLaunchReset(env){
+  if(env.FRESH_LAUNCH_RESET!=='true'||!env.DB)return;
+  if(freshLaunchResetPromise)return freshLaunchResetPromise;
+  freshLaunchResetPromise=(async()=>{
+    const key=env.FRESH_LAUNCH_RESET_KEY||'fresh_launch_reset_2026_10_03_v1';
+    const done=await env.DB.prepare('SELECT value FROM settings WHERE key=?').bind(key).first();
+    if(done?.value==='1')return;
+    const now=new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE placements SET current_booking_id=NULL,current_sponsor_id=NULL,current_amount_cents=NULL,current_logo_asset_id=NULL,version=0,print_locked=0,updated_at=?").bind(now),
+      env.DB.prepare('DELETE FROM view_events'),
+      env.DB.prepare('DELETE FROM refunds'),
+      env.DB.prepare('DELETE FROM payment_events'),
+      env.DB.prepare('DELETE FROM activity'),
+      env.DB.prepare('DELETE FROM spot_holds'),
+      env.DB.prepare('DELETE FROM assets'),
+      env.DB.prepare('DELETE FROM bookings'),
+      env.DB.prepare('DELETE FROM sponsors'),
+      env.DB.prepare("INSERT INTO settings(key,value,updated_at) VALUES('bookings_open','1',?) ON CONFLICT(key) DO UPDATE SET value='1',updated_at=excluded.updated_at").bind(now),
+      env.DB.prepare("INSERT INTO settings(key,value,updated_at) VALUES('print_lock_at','',?) ON CONFLICT(key) DO UPDATE SET value='',updated_at=excluded.updated_at").bind(now),
+      env.DB.prepare("INSERT INTO settings(key,value,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value='1',updated_at=excluded.updated_at").bind(key,'1',now)
+    ]);
+  })().catch(error=>{
+    freshLaunchResetPromise=null;
+    throw error;
+  });
+  return freshLaunchResetPromise;
+}
+
 const automaticRefundsEnabled=env=>{
   if(env.DODO_ENVIRONMENT==='test_mode')return env.AUTO_REFUNDS_TEST_MODE==='true';
   if(env.DODO_ENVIRONMENT==='live_mode')return env.AUTO_REFUNDS_LIVE_MODE==='true';
@@ -184,6 +214,9 @@ async function route(request,env,ctx){
       database:Boolean(env.DB),
       logo_storage:Boolean(env.DB),
       payment_provider:paymentProviderReady(env),
+      payment_environment:env.DODO_ENVIRONMENT||'',
+      webhook_configured:Boolean(env.DODO_PAYMENTS_WEBHOOK_KEY),
+      automatic_live_refunds:env.AUTO_REFUNDS_LIVE_MODE==='true',
       bookings_open:settings.bookings_open==='1',
       print_lock_at:settings.print_lock_at||''
     });
@@ -197,6 +230,8 @@ async function route(request,env,ctx){
       payment_provider_ready:paymentProviderReady(env),
       payment_provider:env.PAYMENT_PROVIDER||'none',
       payment_environment:env.DODO_ENVIRONMENT||'',
+      webhook_configured:Boolean(env.DODO_PAYMENTS_WEBHOOK_KEY),
+      automatic_live_refunds:env.AUTO_REFUNDS_LIVE_MODE==='true',
       print_lock_at:settings.print_lock_at||'',
       terms_version:settings.terms_version||''
     });
@@ -416,6 +451,11 @@ async function route(request,env,ctx){
 
 export default{
   async fetch(request,env,ctx){
-    try{return await route(request,env,ctx);}catch(error){return fail(error);}
+    try{
+      await ensureFreshLaunchReset(env);
+      return await route(request,env,ctx);
+    }catch(error){
+      return fail(error);
+    }
   }
 };
