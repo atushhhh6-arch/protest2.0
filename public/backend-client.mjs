@@ -51,7 +51,11 @@ export async function fetchSharedModel(){
     profileId:item.sponsor_id||'',
     amount:Number(item.amount_cents)||0,
     date:item.created_at,
-    previous:item.previous_booking_id?{brand:item.previous_brand_name||'Previous sponsor',amount:Number(item.previous_amount_cents)||0}:null
+    previous:item.previous_booking_id?{
+      brand:item.previous_brand_name||'Previous sponsor',
+      amount:Number(item.previous_amount_cents)||0,
+      views:Number(item.previous_views)||0
+    }:null
   }));
   return {
     available:true,
