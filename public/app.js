@@ -24,7 +24,19 @@ function openProfile(profile,origin,spot='',trackView=true){
   profileSlot=spot;
   if(trackView){
     if(sharedBackend){
-      recordSharedView(profile.profileId);
+      recordSharedView(profile.profileId).then(result=>{
+        const views=Number(result?.views);
+        if(!Number.isFinite(views))return;
+        profile.views=views;
+        if(model.profiles?.[profile.profileId])model.profiles[profile.profileId].views=views;
+        for(const item of Object.values(model.auction?.spots||{})){
+          if(item.profileId===profile.profileId)item.views=views;
+        }
+        const currentSpot=profileSlot?model.auction?.spots?.[profileSlot]:null;
+        if($('#profile-dialog').open&&(!currentSpot||currentSpot.profileId===profile.profileId)){
+          $('#profile-views').textContent=views.toLocaleString()+' views';
+        }
+      });
     }else{
       const next=recordProfileView(model,profile,spot,seenProfiles);
       if(next!==model)commit(next);
