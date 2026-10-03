@@ -1,5 +1,5 @@
 export const TERMS_VERSION='2026-10-03';
-export const MAX_LOGO_BYTES=5*1024*1024;
+export const MAX_LOGO_BYTES=1_200_000;
 export const ALLOWED_LOGO_TYPES=new Set(['image/png','image/jpeg','image/webp']);
 
 export class ApiError extends Error{
@@ -71,7 +71,7 @@ export function isPrintLocked(settings,placement,now=new Date()){
 
 export function validateLogoMeta(contentType,size){
   if(!ALLOWED_LOGO_TYPES.has(contentType))throw new ApiError(415,'INVALID_LOGO_TYPE','Logo must be PNG, JPG or WebP.');
-  if(!Number.isSafeInteger(size)||size<=0||size>MAX_LOGO_BYTES)throw new ApiError(413,'LOGO_TOO_LARGE','Logo must be 5 MB or smaller.');
+  if(!Number.isSafeInteger(size)||size<=0||size>MAX_LOGO_BYTES)throw new ApiError(413,'LOGO_TOO_LARGE','Logo must be 1.2 MB or smaller.');
 }
 
 export function logoExtension(contentType){

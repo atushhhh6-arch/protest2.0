@@ -1,4 +1,4 @@
-import {ApiError,normalizeBookingInput,normalizeProfileUpdate,validateLogoMeta,logoExtension} from './core.mjs';
+import {ApiError,normalizeBookingInput,normalizeProfileUpdate,validateLogoMeta} from './core.mjs';
 import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,finalizePaidBooking,myBooking,readSettings,recordView,updateSponsorProfile} from './db.mjs';
 import {paymentProviderReady,createCheckoutSession,verifyPaymentWebhook,issueRefund} from './payment-provider.mjs';
 
@@ -13,7 +13,6 @@ const fail=error=>{
   return json({ok:false,error:'INTERNAL_ERROR',message:'Unexpected server error.'},500);
 };
 const requireDb=env=>{if(!env.DB)throw new ApiError(503,'DATABASE_NOT_CONFIGURED','Database binding is not configured.');return env.DB;};
-const requireLogos=env=>{if(!env.LOGOS)throw new ApiError(503,'LOGO_STORAGE_NOT_CONFIGURED','Logo storage binding is not configured.');return env.LOGOS;};
 const bearer=request=>{
   const value=request.headers.get('authorization')||'';
   const match=value.match(/^Bearer\s+(.+)$/i);
@@ -36,6 +35,19 @@ const hash=async text=>{
 };
 const parseJson=async request=>{try{return await request.json();}catch{throw new ApiError(400,'INVALID_JSON','Request body must be valid JSON.');}};
 const holdMinutes=env=>Math.min(30,Math.max(5,Number(env.BOOKING_HOLD_MINUTES)||15));
+const bytesToBase64=buffer=>{
+  const bytes=new Uint8Array(buffer);
+  let binary='';
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+  return btoa(binary);
+};
+const base64ToBytes=value=>{
+  const binary=atob(String(value||''));
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  return bytes;
+};
 
 async function verifyTurnstile(body,request,env){
   if(env.TURNSTILE_REQUIRED!=='true')return;
@@ -73,7 +85,7 @@ async function route(request,env,ctx){
     return ok({
       backend:'protest2-v1',
       database:Boolean(env.DB),
-      logo_storage:Boolean(env.LOGOS),
+      logo_storage:Boolean(env.DB),
       payment_provider:paymentProviderReady(env),
       bookings_open:settings.bookings_open==='1',
       print_lock_at:settings.print_lock_at||''
@@ -117,7 +129,7 @@ async function route(request,env,ctx){
 
   const logoMatch=path.match(/^\/api\/bookings\/([^/]+)\/logo$/);
   if(logoMatch&&method==='PUT'){
-    const db=requireDb(env),bucket=requireLogos(env);
+    const db=requireDb(env);
     const tokenHash=await hash(bearer(request));
     const booking=await bookingForToken(db,tokenHash,decodeURIComponent(logoMatch[1]));
     const contentType=(request.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();
@@ -125,31 +137,28 @@ async function route(request,env,ctx){
     validateLogoMeta(contentType,body.byteLength);
     if(!['pending','checkout_created'].includes(booking.status))throw new ApiError(409,'BOOKING_NOT_EDITABLE','This booking can no longer be edited.');
     const assetId=crypto.randomUUID();
-    const key=`logos/${booking.id}/${assetId}.${logoExtension(contentType)}`;
-    await bucket.put(key,body,{httpMetadata:{contentType,cacheControl:'public, max-age=31536000, immutable'}});
-    try{
-      await db.batch([
-        db.prepare("INSERT INTO assets(id,booking_id,object_key,content_type,size_bytes,is_public,moderation_status,created_at) VALUES(?,?,?,?,?,0,?,?)")
-          .bind(assetId,booking.id,key,contentType,body.byteLength,env.AUTO_APPROVE_LOGOS==='true'?'approved':'pending',new Date().toISOString()),
-        db.prepare('UPDATE bookings SET logo_asset_id=?,updated_at=? WHERE id=?')
-          .bind(assetId,new Date().toISOString(),booking.id)
-      ]);
-      await setBookingLogo(db,booking.id,assetId);
-    }catch(error){
-      ctx.waitUntil(bucket.delete(key));
-      throw error;
-    }
+    const now=new Date().toISOString();
+    const dataBase64=bytesToBase64(body);
+    await db.batch([
+      db.prepare("INSERT INTO assets(id,booking_id,object_key,content_type,size_bytes,is_public,moderation_status,created_at,data_base64) VALUES(?,?,?,?,?,0,?,?,?)")
+        .bind(assetId,booking.id,'d1:'+assetId,contentType,body.byteLength,env.AUTO_APPROVE_LOGOS==='true'?'approved':'pending',now,dataBase64),
+      db.prepare('UPDATE bookings SET logo_asset_id=?,updated_at=? WHERE id=?')
+        .bind(assetId,now,booking.id)
+    ]);
+    await setBookingLogo(db,booking.id,assetId);
     return ok({asset_id:assetId});
   }
 
   const assetMatch=path.match(/^\/api\/assets\/([^/]+)$/);
   if(assetMatch&&method==='GET'){
-    const db=requireDb(env),bucket=requireLogos(env);
-    const asset=await db.prepare('SELECT * FROM assets WHERE id=? AND is_public=1').bind(decodeURIComponent(assetMatch[1])).first();
-    if(!asset)throw new ApiError(404,'ASSET_NOT_FOUND','Asset not found.');
-    const object=await bucket.get(asset.object_key);
-    if(!object)throw new ApiError(404,'ASSET_NOT_FOUND','Asset not found.');
-    return new Response(object.body,{headers:{'content-type':asset.content_type,'cache-control':'public, max-age=86400','etag':object.httpEtag||''}});
+    const db=requireDb(env);
+    const asset=await db.prepare('SELECT id,content_type,data_base64 FROM assets WHERE id=? AND is_public=1').bind(decodeURIComponent(assetMatch[1])).first();
+    if(!asset?.data_base64)throw new ApiError(404,'ASSET_NOT_FOUND','Asset not found.');
+    return new Response(base64ToBytes(asset.data_base64),{headers:{
+      'content-type':asset.content_type,
+      'cache-control':'public, max-age=86400, immutable',
+      'etag':'"'+asset.id+'"'
+    }});
   }
 
   if(path==='/api/payments/session'&&method==='POST'){

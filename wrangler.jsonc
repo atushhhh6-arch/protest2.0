@@ -15,12 +15,6 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "LOGOS",
-      "bucket_name": "protest2-logos"
-    }
-  ],
   "vars": {
     "BOOKING_HOLD_MINUTES": "15",
     "PAYMENTS_ENABLED": "true",
