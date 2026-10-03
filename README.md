@@ -45,3 +45,45 @@ The public reset control and local mock-booking workflow have been removed from 
 
 Shared state between different visitors is still not connected. A backend/database is required before different browsers can see the same sponsorships, global view counts, live bookings, payments or refunds.
 
+
+
+## Backend foundation
+
+A payment-safe backend scaffold now lives in `server/` with a D1 migration in `migrations/0001_backend.sql`.
+
+It is intentionally **not activated in the production Wrangler config yet**, so the current public site cannot charge anyone by accident. `wrangler.backend.example.jsonc` is the ready-to-wire configuration.
+
+The backend includes:
+
+- Shared public spot/sponsor state from D1.
+- Server-side minimum-bid validation.
+- Atomic D1 spot holds with an expiring checkout window.
+- Optimistic spot version checks before payment finalization.
+- Booking records and hashed management tokens.
+- R2 logo storage with private drafts and public assets only after a paid booking is finalized.
+- Payment-event idempotency and a provider adapter boundary.
+- Conflict handling that creates a refund-required record instead of stealing a changed spot.
+- Takeover refund queue records for the previous sponsor.
+- Print-lock enforcement.
+- Admin endpoints protected by `ADMIN_SECRET`.
+- A disabled test-only paid-booking finalizer for backend QA.
+- Public sponsor state and view-count plumbing.
+- A same-origin frontend adapter that will automatically read the shared backend once the Worker API is activated.
+
+### One-time Cloudflare setup before payment integration
+
+1. Create D1:
+   `npx wrangler d1 create protest2-production`
+2. Put the returned database ID into a copy of `wrangler.backend.example.jsonc`.
+3. Create R2:
+   `npx wrangler r2 bucket create protest2-logos`
+4. Apply the schema:
+   `npx wrangler d1 migrations apply protest2-production --remote`
+5. Add secrets:
+   `npx wrangler secret put ADMIN_SECRET`
+   `npx wrangler secret put VIEW_HASH_SALT`
+6. Keep `PAYMENTS_ENABLED=false` and `bookings_open=0` until the real payment adapter and webhook verification are connected and tested.
+7. After the bindings exist, replace `wrangler.jsonc` with the backend config values and deploy.
+8. Only after payment/refund tests pass should `bookings_open` and `PAYMENTS_ENABLED` be enabled.
+
+The payment-provider-specific code is isolated in `server/payment-provider.mjs`. Real checkout creation, webhook signature verification and provider refund calls should be implemented there without changing the booking/auction consistency layer.

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "test:backend": "node --test server/core.test.mjs",
+    "check": "npm run test:backend && npm run build"
   },
   "engines": {
     "node": ">=22.16.0"

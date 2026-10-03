@@ -1,9 +1,10 @@
 import {placements,money,parseAmount,minimum,total} from './auction-core.mjs';
 import {freshPreview,profileKey,profileActivity,recordProfileView,editSavedProfile,safeWebsite,clearWebsiteStorage} from './preview-state.mjs';
 import {createLogoEditor} from './logo-editor.mjs';
+import {fetchSharedModel,recordSharedView} from './backend-client.mjs';
 const $=s=>document.querySelector(s);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
-let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement';
+let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement',sharedBackend=false;
 const seenProfiles=new Set();
 try{clearWebsiteStorage(localStorage);clearWebsiteStorage(sessionStorage);}catch{}
 const state=()=>model.auction;
@@ -23,8 +24,12 @@ if(storageProblem)$('#preview-feedback').textContent=storageProblem;}
 function openProfile(profile,origin,spot='',trackView=true){
   profileSlot=spot;
   if(trackView){
-    const next=recordProfileView(model,profile,spot,seenProfiles);
-    if(next!==model)commit(next);
+    if(sharedBackend){
+      recordSharedView(profile.profileId);
+    }else{
+      const next=recordProfileView(model,profile,spot,seenProfiles);
+      if(next!==model)commit(next);
+    }
   }
   const activity=profileActivity(model,profile);
   const sponsor=spot?model.auction.spots[spot]:null;
@@ -64,8 +69,8 @@ function openProfile(profile,origin,spot='',trackView=true){
 }
 $('#profile-takeover').onclick=()=>{const id=profileSlot;$('#profile-dialog').close();if(id)openSpot(id,document.querySelector('[data-spot="'+id+'"]'));};
 function openAccount(origin=$('#my-profile')){
-  const profiles=Object.values(model.profiles||{});
-  const hasData=profiles.length>0||Object.keys(model.auction.spots).length>0||model.auction.history.length>0;
+  const profiles=sharedBackend?[]:Object.values(model.profiles||{});
+  const hasData=!sharedBackend&&(profiles.length>0||Object.keys(model.auction.spots).length>0||model.auction.history.length>0);
   $('#account-empty').hidden=hasData;
   $('#account-content').hidden=!hasData;
   $('#account-spots').textContent=Object.keys(model.auction.spots).length;
@@ -187,4 +192,18 @@ if(reelsTrack){
   });
 }
 
+async function hydrateSharedState(){
+  const result=await fetchSharedModel();
+  if(!result.available||!result.model)return false;
+  sharedBackend=true;
+  model=result.model;
+  storageProblem='';
+  render();
+  return true;
+}
 render();
+hydrateSharedState().then(available=>{
+  if(!available)return;
+  setInterval(()=>{if(!document.hidden)hydrateSharedState();},15000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)hydrateSharedState();});
+});
