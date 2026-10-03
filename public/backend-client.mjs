@@ -1,4 +1,18 @@
 const TOKEN_KEY='protest2.manage_tokens.v1';
+const VIEWER_KEY='protest2.viewer_id.v1';
+
+function viewerId(){
+  try{
+    let id=localStorage.getItem(VIEWER_KEY)||'';
+    if(!id){
+      id=crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+      localStorage.setItem(VIEWER_KEY,id);
+    }
+    return id;
+  }catch{
+    return '';
+  }
+}
 
 const publicProfile=row=>({
   profileId:row.sponsor.id,
@@ -47,8 +61,21 @@ export async function fetchSharedModel(){
 }
 
 export async function recordSharedView(sponsorId){
-  if(!sponsorId)return;
-  try{await fetch('/api/sponsors/'+encodeURIComponent(sponsorId)+'/view',{method:'POST',headers:{accept:'application/json'}});}catch{}
+  if(!sponsorId)return null;
+  try{
+    const headers={accept:'application/json'};
+    const id=viewerId();
+    if(id)headers['x-protest-viewer']=id;
+    const response=await fetch('/api/sponsors/'+encodeURIComponent(sponsorId)+'/view',{
+      method:'POST',
+      headers,
+      cache:'no-store'
+    });
+    const data=await response.json().catch(()=>null);
+    return response.ok&&data?.ok?data:null;
+  }catch{
+    return null;
+  }
 }
 
 export function rememberManageToken(token){
