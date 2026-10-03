@@ -34,5 +34,7 @@
       "pattern": "protestayush.lol",
       "custom_domain": true
     }
-  ]
+  ],
+  "keep_vars": true,
+  "workers_dev": true
 }
