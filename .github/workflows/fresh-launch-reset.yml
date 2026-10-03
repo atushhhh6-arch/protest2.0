@@ -1,0 +1,82 @@
+name: Fresh Launch Readiness Check
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Wait for Cloudflare and verify fresh production state
+        shell: bash
+        run: |
+          set -u
+          BASE="https://protest2-0.atushhhh6.workers.dev"
+          for i in $(seq 1 30); do
+            HEALTH="$(curl -fsS "$BASE/api/health" 2>/dev/null || true)"
+            STATE="$(curl -fsS "$BASE/api/public-state" 2>/dev/null || true)"
+            printf '%s' "$HEALTH" > /tmp/health.json
+            printf '%s' "$STATE" > /tmp/state.json
+            if python3 - <<'PY'
+import json, sys
+try:
+    health=json.load(open('/tmp/health.json'))
+    state=json.load(open('/tmp/state.json'))
+except Exception:
+    sys.exit(1)
+
+ready=(
+    health.get('ok') is True
+    and health.get('database') is True
+    and health.get('payment_provider') is True
+    and health.get('payment_environment') == 'live_mode'
+    and health.get('webhook_configured') is True
+    and health.get('automatic_live_refunds') is True
+    and health.get('bookings_open') is True
+)
+
+placements=state.get('placements') or []
+fresh=(
+    state.get('ok') is True
+    and len(placements) == 12
+    and len(state.get('activity') or []) == 0
+    and all(not row.get('sponsor') for row in placements)
+    and all(int(row.get('current_amount_cents') or 0) == 0 for row in placements)
+    and (state.get('settings') or {}).get('bookings_open') is True
+)
+
+if ready and fresh:
+    print('LIVE_READY')
+    print(json.dumps(health, indent=2))
+    print('Fresh placements:', len(placements), 'activity:', len(state.get('activity') or []))
+    sys.exit(0)
+
+print('Not ready yet')
+print('health=', health)
+print('state_summary=', {
+    'ok': state.get('ok'),
+    'placements': len(placements),
+    'activity': len(state.get('activity') or []),
+    'occupied': sum(1 for row in placements if row.get('sponsor')),
+    'bookings_open': (state.get('settings') or {}).get('bookings_open')
+})
+sys.exit(1)
+PY
+            then
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "Production did not become fully ready in time."
+          echo "Health response:"
+          cat /tmp/health.json || true
+          echo
+          echo "State response:"
+          cat /tmp/state.json || true
+          exit 1
