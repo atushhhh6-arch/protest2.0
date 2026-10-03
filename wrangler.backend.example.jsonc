@@ -31,6 +31,7 @@
     "DODO_PRODUCT_ID": "REPLACE_WITH_TEST_PRODUCT_ID",
     "DODO_RETURN_URL": "https://REPLACE_WITH_YOUR_DOMAIN/?payment=complete",
     "DODO_CANCEL_URL": "https://REPLACE_WITH_YOUR_DOMAIN/?payment=cancelled",
-    "TURNSTILE_REQUIRED": "false"
+    "TURNSTILE_REQUIRED": "false",
+    "AUTO_APPROVE_LOGOS": "true"
   }
 }
