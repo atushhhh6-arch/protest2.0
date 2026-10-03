@@ -1,5 +1,5 @@
-import {ApiError,normalizeBookingInput,validateLogoMeta,logoExtension} from './core.mjs';
-import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,finalizePaidBooking,myBooking,readSettings,recordView} from './db.mjs';
+import {ApiError,normalizeBookingInput,normalizeProfileUpdate,validateLogoMeta,logoExtension} from './core.mjs';
+import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,finalizePaidBooking,myBooking,readSettings,recordView,updateSponsorProfile} from './db.mjs';
 import {paymentProviderReady,createCheckoutSession,verifyPaymentWebhook,issueRefund} from './payment-provider.mjs';
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{
@@ -36,6 +36,23 @@ const hash=async text=>{
 };
 const parseJson=async request=>{try{return await request.json();}catch{throw new ApiError(400,'INVALID_JSON','Request body must be valid JSON.');}};
 const holdMinutes=env=>Math.min(30,Math.max(5,Number(env.BOOKING_HOLD_MINUTES)||15));
+
+async function verifyTurnstile(body,request,env){
+  if(env.TURNSTILE_REQUIRED!=='true')return;
+  if(!env.TURNSTILE_SECRET)throw new ApiError(503,'TURNSTILE_NOT_CONFIGURED','Bot protection is required but not configured.');
+  const token=String(body.turnstile_token||'').trim();
+  if(!token)throw new ApiError(400,'TURNSTILE_REQUIRED','Complete the verification challenge.');
+  const form=new URLSearchParams();
+  form.set('secret',env.TURNSTILE_SECRET);
+  form.set('response',token);
+  const ip=request.headers.get('cf-connecting-ip');
+  if(ip)form.set('remoteip',ip);
+  const response=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{
+    method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:form
+  });
+  const result=await response.json().catch(()=>null);
+  if(!result?.success)throw new ApiError(403,'TURNSTILE_FAILED','Verification failed. Try again.');
+}
 
 async function viewerHash(request,env){
   if(!env.VIEW_HASH_SALT)return '';
@@ -79,7 +96,9 @@ async function route(request,env,ctx){
   if(path==='/api/bookings/prepare'&&method==='POST'){
     const db=requireDb(env);
     if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Payments are still disabled.');
-    const input=normalizeBookingInput(await parseJson(request));
+    const body=await parseJson(request);
+    await verifyTurnstile(body,request,env);
+    const input=normalizeBookingInput(body);
     const bookingId=crypto.randomUUID();
     const token=randomToken();
     const tokenHash=await hash(token);
@@ -108,7 +127,7 @@ async function route(request,env,ctx){
     await bucket.put(key,body,{httpMetadata:{contentType,cacheControl:'public, max-age=31536000, immutable'}});
     try{
       await db.batch([
-        db.prepare('INSERT INTO assets(id,booking_id,object_key,content_type,size_bytes,is_public,created_at) VALUES(?,?,?,?,?,0,?)')
+        db.prepare("INSERT INTO assets(id,booking_id,object_key,content_type,size_bytes,is_public,moderation_status,created_at) VALUES(?,?,?,?,?,0,'pending',?)")
           .bind(assetId,booking.id,key,contentType,body.byteLength,new Date().toISOString()),
         db.prepare('UPDATE bookings SET logo_asset_id=?,updated_at=? WHERE id=?')
           .bind(assetId,new Date().toISOString(),booking.id)
@@ -137,6 +156,8 @@ async function route(request,env,ctx){
     const body=await parseJson(request);
     const booking=await bookingForToken(db,tokenHash,String(body.booking_id||''));
     if(!booking.logo_asset_id)throw new ApiError(409,'LOGO_REQUIRED','Upload the approved logo before checkout.');
+    const asset=await db.prepare('SELECT moderation_status FROM assets WHERE id=?').bind(booking.logo_asset_id).first();
+    if(asset?.moderation_status!=='approved')throw new ApiError(409,'LOGO_NOT_APPROVED','Logo must be approved before payment can start.');
     if(!['pending','checkout_created'].includes(booking.status))throw new ApiError(409,'BOOKING_NOT_PAYABLE','This booking cannot be paid.');
     if(new Date(booking.hold_expires_at)<=new Date())throw new ApiError(409,'BOOKING_EXPIRED','This booking hold has expired.');
     if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Payment provider is not connected yet.');
