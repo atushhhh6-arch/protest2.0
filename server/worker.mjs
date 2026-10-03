@@ -67,11 +67,13 @@ async function verifyTurnstile(body,request,env){
 }
 
 async function viewerHash(request,env){
-  if(!env.VIEW_HASH_SALT)return '';
   const ip=request.headers.get('cf-connecting-ip')||'';
   const ua=(request.headers.get('user-agent')||'').slice(0,180);
+  const clientId=(request.headers.get('x-protest-viewer')||'').trim().slice(0,128);
   const day=new Date().toISOString().slice(0,10);
-  return hash([env.VIEW_HASH_SALT,ip,ua,day].join('|'));
+  const salt=env.VIEW_HASH_SALT||'protest2-view-dedupe-v1';
+  const identity=clientId?['client',clientId]:['fallback',ip,ua];
+  return hash([salt,...identity,day].join('|'));
 }
 
 const automaticRefundsEnabled=env=>{
