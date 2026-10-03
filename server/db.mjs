@@ -22,9 +22,11 @@ export async function publicState(db){
   const {results:activity=[]}=await db.prepare(`
     SELECT a.id,a.event_type,a.slot_id,a.sponsor_id,a.booking_id,a.amount_cents,
            a.previous_booking_id,a.previous_brand_name,a.previous_amount_cents,a.created_at,
-           s.brand_name
+           s.brand_name,COALESCE(ps.views,0) AS previous_views
     FROM activity a
     LEFT JOIN sponsors s ON s.id=a.sponsor_id
+    LEFT JOIN bookings pb ON pb.id=a.previous_booking_id
+    LEFT JOIN sponsors ps ON ps.id=pb.sponsor_id
     ORDER BY a.created_at DESC
     LIMIT 30
   `).all();
@@ -222,6 +224,16 @@ export async function finalizePaidBooking(db,{bookingId,provider,paymentId,custo
       UPDATE assets SET is_public=1
       WHERE id=(SELECT logo_asset_id FROM bookings WHERE id=? AND status='finalizing')
     `).bind(bookingId),
+    db.prepare(`
+      UPDATE sponsors
+      SET status='inactive',updated_at=?
+      WHERE id=(
+        SELECT p.current_sponsor_id
+        FROM placements p
+        JOIN bookings b ON b.slot_id=p.slot_id
+        WHERE b.id=? AND b.status='finalizing'
+      )
+    `).bind(now.toISOString(),bookingId),
     db.prepare(`
       UPDATE placements
       SET current_booking_id=?,current_sponsor_id=?,current_amount_cents=(SELECT amount_cents FROM bookings WHERE id=?),
