@@ -33,6 +33,10 @@
     {
       "pattern": "protestayush.lol",
       "custom_domain": true
+    },
+    {
+      "pattern": "www.protestayush.lol/*",
+      "zone_name": "protestayush.lol"
     }
   ],
   "keep_vars": true,
