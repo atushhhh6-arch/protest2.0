@@ -202,6 +202,13 @@ async function route(request,env,ctx){
     },sponsor:data.sponsor,refunds:data.refunds});
   }
 
+  if(path==='/api/me/profile'&&method==='PATCH'){
+    const db=requireDb(env);
+    const tokenHash=await hash(bearer(request));
+    const profile=normalizeProfileUpdate(await parseJson(request));
+    return ok({sponsor:await updateSponsorProfile(db,tokenHash,profile)});
+  }
+
   const viewMatch=path.match(/^\/api\/sponsors\/([^/]+)\/view$/);
   if(viewMatch&&method==='POST'){
     const db=requireDb(env);
@@ -216,12 +223,13 @@ async function route(request,env,ctx){
   if(path==='/api/admin/overview'&&method==='GET'){
     admin(request,env);
     const db=requireDb(env);
-    const [bookings,refunds,holds]=await Promise.all([
+    const [bookings,refunds,holds,assets]=await Promise.all([
       db.prepare("SELECT id,slot_id,amount_cents,status,brand_name,created_at,paid_at FROM bookings ORDER BY created_at DESC LIMIT 100").all(),
       db.prepare("SELECT * FROM refunds WHERE status!='succeeded' ORDER BY created_at ASC LIMIT 100").all(),
-      db.prepare("SELECT * FROM spot_holds ORDER BY expires_at ASC").all()
+      db.prepare("SELECT * FROM spot_holds ORDER BY expires_at ASC").all(),
+      db.prepare("SELECT id,booking_id,content_type,size_bytes,moderation_status,created_at FROM assets WHERE moderation_status='pending' ORDER BY created_at ASC LIMIT 100").all()
     ]);
-    return ok({bookings:bookings.results||[],refunds:refunds.results||[],holds:holds.results||[]});
+    return ok({bookings:bookings.results||[],refunds:refunds.results||[],holds:holds.results||[],pending_assets:assets.results||[]});
   }
 
   if(path==='/api/admin/settings'&&method==='POST'){
@@ -236,6 +244,17 @@ async function route(request,env,ctx){
     }
     if(statements.length)await db.batch(statements);
     return ok({settings:await readSettings(db)});
+  }
+
+  const moderationMatch=path.match(/^\/api\/admin\/assets\/([^/]+)\/moderation$/);
+  if(moderationMatch&&method==='POST'){
+    admin(request,env);
+    const db=requireDb(env),body=await parseJson(request);
+    if(!['approved','rejected'].includes(body.status))throw new ApiError(400,'INVALID_MODERATION_STATUS','Status must be approved or rejected.');
+    const result=await db.prepare("UPDATE assets SET moderation_status=? WHERE id=? AND moderation_status='pending'")
+      .bind(body.status,decodeURIComponent(moderationMatch[1])).run();
+    if(!(Number(result.meta?.changes)||0))throw new ApiError(404,'ASSET_NOT_PENDING','Pending logo asset not found.');
+    return ok({updated:true,status:body.status});
   }
 
   const refundMatch=path.match(/^\/api\/admin\/refunds\/([^/]+)\/status$/);
@@ -264,7 +283,11 @@ async function route(request,env,ctx){
     admin(request,env);
     if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Automated refunds are not configured.');
     const db=requireDb(env);
-    const {results=[]}=await db.prepare("SELECT * FROM refunds WHERE status='pending' ORDER BY created_at ASC LIMIT 20").all();
+    const {results=[]}=await db.prepare(`
+      SELECT r.*,b.payment_provider,b.provider_payment_id,b.provider_customer_id
+      FROM refunds r JOIN bookings b ON b.id=r.booking_id
+      WHERE r.status='pending' ORDER BY r.created_at ASC LIMIT 20
+    `).all();
     const processed=[];
     for(const refund of results){
       try{
