@@ -121,3 +121,15 @@ export async function updateOwnedProfile(manageToken,profile){
   if(!response.ok||!data.ok)throw new Error(data.message||'Could not update sponsor profile.');
   return data.sponsor;
 }
+
+
+export async function fetchBackendConfig(){
+  try{
+    const response=await fetch('/api/config',{headers:{accept:'application/json'},cache:'no-store'});
+    if(!response.ok)return {available:false,bookings_open:false};
+    const data=await response.json();
+    return data?.ok?{available:true,...data}:{available:false,bookings_open:false};
+  }catch{
+    return {available:false,bookings_open:false};
+  }
+}
