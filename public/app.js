@@ -259,7 +259,7 @@ function createGravityPlayground(){
   if(!wall||!toggle)return null;
 
   let active=false,raf=0,last=0,bodies=[];
-  let gravity={x:0,y:920};
+  let gravity={x:0,y:1500};
   let sensorLive=false,pointerLive=false;
   let motionHandler=null,orientationHandler=null;
   const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
@@ -347,12 +347,13 @@ function createGravityPlayground(){
       return {node,cx:r.left-wallRect.left+r.width/2,cy:r.top-wallRect.top+r.height/2};
     });
     wall.classList.add('gravity-active');
+    for(const node of nodes)node.classList.remove('new-claim');
     const maxX=Math.max(0,wall.clientWidth-90),maxY=Math.max(0,wall.clientHeight-90);
     bodies=centers.map((item,index)=>{
       const w=item.node.offsetWidth||90,h=item.node.offsetHeight||90;
       const x=clamp(item.cx-w/2,0,Math.max(0,wall.clientWidth-w));
       const y=clamp(Math.min(item.cy-h/2,16+index*3),0,Math.max(0,wall.clientHeight-h));
-      return {node:item.node,w,h,x,y,vx:random(-45,45),vy:random(-10,25),angle:random(-5,5),va:random(-18,18)};
+      return {node:item.node,w,h,x,y,vx:random(-55,55),vy:random(90,170),angle:random(-5,5),va:random(-18,18)};
     });
     for(const b of bodies){
       b.node.style.transform=`translate3d(${b.x}px,${b.y}px,0) rotate(${b.angle}deg)`;
@@ -414,7 +415,7 @@ function createGravityPlayground(){
     active=true;
     toggle.setAttribute('aria-pressed','true');
     toggle.textContent='Gravity OFF';
-    gravity={x:0,y:920};
+    gravity={x:0,y:1500};
     sensorLive=false;pointerLive=false;
     toggle.classList.remove('sensor-live','pointer-live');
     hint.textContent='Tilt your phone to move the logos.';
@@ -437,7 +438,7 @@ function createGravityPlayground(){
     for(const b of bodies)b.node.style.removeProperty('transform');
     bodies=[];
     sensorLive=false;pointerLive=false;
-    gravity={x:0,y:920};
+    gravity={x:0,y:1500};
     render();
   }
 
@@ -458,7 +459,7 @@ function createGravityPlayground(){
     if(!active||sensorLive)return;
     pointerLive=false;
     toggle.classList.remove('pointer-live');
-    gravity={x:0,y:920};
+    gravity={x:0,y:1500};
   });
 
   const observer=new MutationObserver(()=>{
