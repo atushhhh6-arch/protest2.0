@@ -1,5 +1,5 @@
-const TOKEN_KEY='protest2.manage_tokens.v1';
-const VIEWER_KEY='protest2.viewer_id.v1';
+const TOKEN_KEY='protest2.manage_tokens.live.v1';
+const VIEWER_KEY='protest2.viewer_id.live.v1';
 
 function viewerId(){
   try{
