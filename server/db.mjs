@@ -176,7 +176,7 @@ export async function finalizePaidBooking(db,{bookingId,provider,paymentId,custo
     db.prepare(`
       INSERT INTO activity(id,event_type,slot_id,sponsor_id,booking_id,amount_cents,previous_booking_id,previous_brand_name,previous_amount_cents,created_at)
       SELECT ?, CASE WHEN p.current_booking_id IS NULL THEN 'placement' ELSE 'takeover' END,
-             b.slot_id, ?, b.id, b.amount_cents, p.current_booking_id, s.brand_name, COALESCE(p.current_amount_cents,0), ?
+             b.slot_id, ?, b.id, b.amount_cents, p.current_booking_id, COALESCE(s.brand_name,''), COALESCE(p.current_amount_cents,0), ?
       FROM bookings b
       JOIN placements p ON p.slot_id=b.slot_id
       LEFT JOIN sponsors s ON s.id=p.current_sponsor_id
