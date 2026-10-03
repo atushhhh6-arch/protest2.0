@@ -194,6 +194,7 @@
   outline:0!important;
   user-select:none;
   -webkit-user-select:none;
+  animation:none!important;
 }
 .sponsors-grid.gravity-active .wall-logo-frame{width:90px!important;height:90px!important;margin:0!important}
 .sponsors-grid.gravity-active .wall-logo img{max-width:70px!important;max-height:70px!important;pointer-events:none}
