@@ -249,3 +249,238 @@ Promise.all([hydrateSharedState(),hydrateBackendConfig()]).then(([available])=>{
   setInterval(()=>{if(!document.hidden){hydrateSharedState();hydrateBackendConfig();}},15000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){hydrateSharedState();hydrateBackendConfig();}});
 });
+
+
+/* Opt-in gravity playground for the sponsor wall. */
+function createGravityPlayground(){
+  const wall=$('#sponsors-grid');
+  const toggle=$('#gravity-toggle');
+  const hint=$('#gravity-hint');
+  if(!wall||!toggle)return null;
+
+  let active=false,raf=0,last=0,bodies=[];
+  let gravity={x:0,y:920};
+  let sensorLive=false,pointerLive=false;
+  let motionHandler=null,orientationHandler=null;
+  const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+  const random=(min,max)=>min+Math.random()*(max-min);
+
+  function rotateForScreen(x,y){
+    const angle=Number(screen.orientation?.angle||window.orientation||0);
+    if(angle===90)return {x:-y,y:x};
+    if(angle===270||angle===-90)return {x:y,y:-x};
+    if(angle===180)return {x:-x,y:-y};
+    return {x,y};
+  }
+
+  function setSensorState(live){
+    sensorLive=live;
+    toggle.classList.toggle('sensor-live',sensorLive);
+    if(sensorLive){
+      pointerLive=false;
+      toggle.classList.remove('pointer-live');
+      hint.textContent='Tilt your phone — the logos follow gravity.';
+    }
+  }
+
+  function useMotion(event){
+    if(!active)return;
+    const a=event.accelerationIncludingGravity;
+    if(!a||!Number.isFinite(a.x)||!Number.isFinite(a.y))return;
+    let vector=rotateForScreen(-a.x*115,a.y*115);
+    if(Math.hypot(vector.x,vector.y)<80)return;
+    gravity.x=clamp(vector.x,-1450,1450);
+    gravity.y=clamp(vector.y,-1450,1450);
+    setSensorState(true);
+  }
+
+  function useOrientation(event){
+    if(!active||sensorLive||!Number.isFinite(event.gamma)||!Number.isFinite(event.beta))return;
+    let vector=rotateForScreen(
+      clamp(event.gamma,-45,45)/45*1050,
+      clamp(event.beta,35,145)-90
+    );
+    gravity.x=clamp(vector.x,-1200,1200);
+    gravity.y=clamp(640+vector.y*13,-1200,1350);
+    setSensorState(true);
+  }
+
+  async function enableSensors(){
+    let granted=false;
+    try{
+      if(typeof DeviceMotionEvent!=='undefined'&&typeof DeviceMotionEvent.requestPermission==='function'){
+        granted=(await DeviceMotionEvent.requestPermission())==='granted';
+      }else if('DeviceMotionEvent' in window){
+        granted=true;
+      }
+    }catch{}
+    try{
+      if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+        granted=(await DeviceOrientationEvent.requestPermission())==='granted'||granted;
+      }else if('DeviceOrientationEvent' in window){
+        granted=true;
+      }
+    }catch{}
+    if(!motionHandler){
+      motionHandler=useMotion;
+      window.addEventListener('devicemotion',motionHandler,{passive:true});
+    }
+    if(!orientationHandler){
+      orientationHandler=useOrientation;
+      window.addEventListener('deviceorientation',orientationHandler,{passive:true});
+    }
+    if(!granted)hint.textContent='Tilt sensors unavailable — move your pointer inside the box.';
+    return granted;
+  }
+
+  function prepareBodies(){
+    const nodes=[...wall.querySelectorAll('.wall-logo')];
+    if(!nodes.length){
+      bodies=[];
+      toggle.disabled=true;
+      return;
+    }
+    toggle.disabled=false;
+    const wallRect=wall.getBoundingClientRect();
+    const centers=nodes.map(node=>{
+      const r=node.getBoundingClientRect();
+      return {node,cx:r.left-wallRect.left+r.width/2,cy:r.top-wallRect.top+r.height/2};
+    });
+    wall.classList.add('gravity-active');
+    const maxX=Math.max(0,wall.clientWidth-90),maxY=Math.max(0,wall.clientHeight-90);
+    bodies=centers.map((item,index)=>{
+      const w=item.node.offsetWidth||90,h=item.node.offsetHeight||90;
+      const x=clamp(item.cx-w/2,0,Math.max(0,wall.clientWidth-w));
+      const y=clamp(Math.min(item.cy-h/2,16+index*3),0,Math.max(0,wall.clientHeight-h));
+      return {node:item.node,w,h,x,y,vx:random(-45,45),vy:random(-10,25),angle:random(-5,5),va:random(-18,18)};
+    });
+    for(const b of bodies){
+      b.node.style.transform=`translate3d(${b.x}px,${b.y}px,0) rotate(${b.angle}deg)`;
+    }
+  }
+
+  function resolvePair(a,b){
+    const acx=a.x+a.w/2,acy=a.y+a.h/2,bcx=b.x+b.w/2,bcy=b.y+b.h/2;
+    let dx=bcx-acx,dy=bcy-acy;
+    const ra=Math.min(a.w,a.h)*.43,rb=Math.min(b.w,b.h)*.43;
+    const minDist=ra+rb;
+    let dist=Math.hypot(dx,dy);
+    if(dist>=minDist)return;
+    if(dist<.001){dx=.01;dy=.01;dist=.014;}
+    const nx=dx/dist,ny=dy/dist,overlap=minDist-dist;
+    a.x-=nx*overlap*.5;a.y-=ny*overlap*.5;
+    b.x+=nx*overlap*.5;b.y+=ny*overlap*.5;
+    const rvx=b.vx-a.vx,rvy=b.vy-a.vy;
+    const along=rvx*nx+rvy*ny;
+    if(along<0){
+      const impulse=-(1+.62)*along/2;
+      const ix=impulse*nx,iy=impulse*ny;
+      a.vx-=ix;a.vy-=iy;b.vx+=ix;b.vy+=iy;
+      const spin=(nx*rvy-ny*rvx)*.018;
+      a.va-=spin;b.va+=spin;
+    }
+  }
+
+  function step(time){
+    if(!active)return;
+    const dt=Math.min(.032,Math.max(.008,(time-last)/1000||.016));
+    last=time;
+    const W=wall.clientWidth,H=wall.clientHeight;
+    for(const b of bodies){
+      b.vx+=gravity.x*dt;
+      b.vy+=gravity.y*dt;
+      const damping=Math.pow(.988,dt*60);
+      b.vx*=damping;b.vy*=damping;b.va*=Math.pow(.982,dt*60);
+      b.x+=b.vx*dt;b.y+=b.vy*dt;b.angle+=b.va*dt;
+
+      if(b.x<0){b.x=0;b.vx=Math.abs(b.vx)*.7;b.va+=b.vy*.018}
+      if(b.x+b.w>W){b.x=Math.max(0,W-b.w);b.vx=-Math.abs(b.vx)*.7;b.va-=b.vy*.018}
+      if(b.y<0){b.y=0;b.vy=Math.abs(b.vy)*.7}
+      if(b.y+b.h>H){b.y=Math.max(0,H-b.h);b.vy=-Math.abs(b.vy)*.66;b.vx*=.94;b.va*=.9}
+    }
+    for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)resolvePair(bodies[i],bodies[j]);
+    for(const b of bodies){
+      b.x=clamp(b.x,0,Math.max(0,W-b.w));
+      b.y=clamp(b.y,0,Math.max(0,H-b.h));
+      b.node.style.transform=`translate3d(${b.x}px,${b.y}px,0) rotate(${b.angle}deg)`;
+    }
+    raf=requestAnimationFrame(step);
+  }
+
+  async function turnOn(){
+    if(active)return;
+    const logos=wall.querySelectorAll('.wall-logo');
+    if(!logos.length)return;
+    active=true;
+    toggle.setAttribute('aria-pressed','true');
+    toggle.textContent='Gravity OFF';
+    gravity={x:0,y:920};
+    sensorLive=false;pointerLive=false;
+    toggle.classList.remove('sensor-live','pointer-live');
+    hint.textContent='Tilt your phone to move the logos.';
+    prepareBodies();
+    await enableSensors();
+    last=performance.now();
+    cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(step);
+  }
+
+  function turnOff(){
+    if(!active)return;
+    active=false;
+    cancelAnimationFrame(raf);
+    wall.classList.remove('gravity-active');
+    toggle.setAttribute('aria-pressed','false');
+    toggle.textContent='Gravity ON';
+    toggle.classList.remove('sensor-live','pointer-live');
+    hint.textContent='Tilt your phone to move the logos.';
+    for(const b of bodies)b.node.style.removeProperty('transform');
+    bodies=[];
+    sensorLive=false;pointerLive=false;
+    gravity={x:0,y:920};
+  }
+
+  toggle.addEventListener('click',()=>active?turnOff():turnOn());
+
+  wall.addEventListener('pointermove',event=>{
+    if(!active||sensorLive||event.pointerType==='touch')return;
+    const r=wall.getBoundingClientRect();
+    const dx=event.clientX-(r.left+r.width/2);
+    const dy=event.clientY-(r.top+r.height/2);
+    gravity.x=clamp(dx*4.2,-1200,1200);
+    gravity.y=clamp(dy*4.2,-1200,1200);
+    pointerLive=true;
+    toggle.classList.add('pointer-live');
+    hint.textContent='Move your pointer around the box to steer gravity.';
+  });
+  wall.addEventListener('pointerleave',()=>{
+    if(!active||sensorLive)return;
+    pointerLive=false;
+    toggle.classList.remove('pointer-live');
+    gravity={x:0,y:920};
+  });
+
+  const observer=new MutationObserver(()=>{
+    toggle.disabled=!wall.querySelector('.wall-logo');
+    if(active){
+      requestAnimationFrame(()=>{
+        for(const b of bodies)b.node.style.removeProperty('transform');
+        prepareBodies();
+      });
+    }
+  });
+  observer.observe(wall,{childList:true});
+  toggle.disabled=!wall.querySelector('.wall-logo');
+
+  window.addEventListener('resize',()=>{
+    if(!active)return;
+    const W=wall.clientWidth,H=wall.clientHeight;
+    for(const b of bodies){
+      b.x=clamp(b.x,0,Math.max(0,W-b.w));
+      b.y=clamp(b.y,0,Math.max(0,H-b.h));
+    }
+  },{passive:true});
+
+  return {turnOff};
+}
+const gravityPlayground=createGravityPlayground();
