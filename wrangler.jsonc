@@ -1,8 +1,34 @@
 {
-  // Deployment refresh: latest reel embed update
   "name": "protest2-0",
+  "main": "server/worker.mjs",
   "compatibility_date": "2026-10-02",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "protest2-production",
+      "database_id": "97cdef4b-e0a4-4969-8051-66382dac6e3d",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "LOGOS",
+      "bucket_name": "protest2-logos"
+    }
+  ],
+  "vars": {
+    "BOOKING_HOLD_MINUTES": "15",
+    "PAYMENTS_ENABLED": "true",
+    "PAYMENT_PROVIDER": "dodo",
+    "ALLOW_TEST_PAYMENTS": "false",
+    "DODO_ENVIRONMENT": "test_mode",
+    "DODO_PRODUCT_ID": "pdt_0NovluGQkooZk1gluR8Ae",
+    "TURNSTILE_REQUIRED": "false",
+    "AUTO_APPROVE_LOGOS": "true"
   }
 }
