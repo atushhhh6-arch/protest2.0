@@ -73,10 +73,10 @@
 .reels-controls button:hover,.reels-controls button:focus-visible{background:#fff0e8;border-color:var(--red);transform:translateY(-2px)}
 .reels-track{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(290px,340px);gap:18px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:4px 5% 18px;margin-left:-5%;margin-right:-5%;scrollbar-width:thin;scrollbar-color:#b9b9b0 transparent}
 .reels-track::-webkit-scrollbar{height:7px}.reels-track::-webkit-scrollbar-thumb{background:#b9b9b0;border-radius:999px}.reels-track::-webkit-scrollbar-track{background:transparent}
-.reel-card{scroll-snap-align:start;border:0;border-radius:18px;overflow:hidden;background:#050505;box-shadow:0 12px 35px #00000018;transform:translateY(14px);opacity:0;animation:reel-card-in .55s ease forwards}
-.reel-card:nth-child(2){animation-delay:.06s}.reel-card:nth-child(3){animation-delay:.12s}.reel-card:nth-child(4){animation-delay:.18s}.reel-card:nth-child(5){animation-delay:.24s}
+.reel-card{scroll-snap-align:start;border:0;border-radius:18px;overflow:hidden;background:#050505;box-shadow:0 12px 35px #00000018;transform:none;opacity:1}
 .reel-video{display:block;width:100%;aspect-ratio:9/16;object-fit:cover;background:#000;border:0;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;user-select:none}
-.reel-video:focus-visible{outline:2px solid var(--red);outline-offset:-2px}\n@keyframes reel-card-in{to{transform:translateY(0);opacity:1}}
+.reel-video:focus-visible{outline:2px solid var(--red);outline-offset:-2px}
+
 @media(max-width:700px){
   .protest-reels{padding-left:16px!important;padding-right:16px!important;padding-bottom:52px}
   .reels-head{align-items:flex-start;margin-bottom:20px}
