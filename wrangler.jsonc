@@ -23,6 +23,7 @@
     "DODO_ENVIRONMENT": "test_mode",
     "DODO_PRODUCT_ID": "pdt_0NovluGQkooZk1gluR8Ae",
     "TURNSTILE_REQUIRED": "false",
-    "AUTO_APPROVE_LOGOS": "true"
+    "AUTO_APPROVE_LOGOS": "true",
+    "AUTO_REFUNDS_TEST_MODE": "true"
   }
 }

@@ -152,6 +152,18 @@ export async function markPaymentFailed(db,{bookingId,provider='',paymentId='',c
   return await db.prepare('SELECT * FROM bookings WHERE id=?').bind(bookingId).first();
 }
 
+export async function markPaymentCancelled(db,{bookingId,provider='',paymentId='',customerId='',now=new Date()}){
+  await db.batch([
+    db.prepare(`
+      UPDATE bookings
+      SET status='cancelled',payment_provider=?,provider_payment_id=?,provider_customer_id=?,updated_at=?
+      WHERE id=? AND status IN ('pending','checkout_created','failed')
+    `).bind(provider,paymentId,customerId,now.toISOString(),bookingId),
+    db.prepare('DELETE FROM spot_holds WHERE booking_id=?').bind(bookingId)
+  ]);
+  return await db.prepare('SELECT * FROM bookings WHERE id=?').bind(bookingId).first();
+}
+
 export async function finalizePaidBooking(db,{bookingId,provider,paymentId,customerId='',amountCents,now=new Date()}){
   const current=await db.prepare('SELECT * FROM bookings WHERE id=?').bind(bookingId).first();
   if(!current)throw new ApiError(404,'BOOKING_NOT_FOUND','Booking not found.');

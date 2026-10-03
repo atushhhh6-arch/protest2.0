@@ -1,5 +1,5 @@
 import {ApiError,normalizeBookingInput,normalizeProfileUpdate,validateLogoMeta} from './core.mjs';
-import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,markPaymentFailed,finalizePaidBooking,myBooking,readSettings,recordView,updateSponsorProfile} from './db.mjs';
+import {publicState,createBookingHold,bookingForToken,setBookingLogo,markCheckoutCreated,markPaymentFailed,markPaymentCancelled,finalizePaidBooking,myBooking,readSettings,recordView,updateSponsorProfile} from './db.mjs';
 import {paymentProviderReady,createCheckoutSession,verifyPaymentWebhook,issueRefund} from './payment-provider.mjs';
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{
@@ -72,6 +72,98 @@ async function viewerHash(request,env){
   const ua=(request.headers.get('user-agent')||'').slice(0,180);
   const day=new Date().toISOString().slice(0,10);
   return hash([env.VIEW_HASH_SALT,ip,ua,day].join('|'));
+}
+
+const automaticTestRefundsEnabled=env=>
+  env.AUTO_REFUNDS_TEST_MODE==='true'&&env.DODO_ENVIRONMENT==='test_mode';
+
+const refundDbStatus=status=>{
+  if(status==='succeeded')return 'succeeded';
+  if(status==='failed')return 'failed';
+  return 'processing';
+};
+
+async function processRefundQueue(db,env,{sourceBookingId='',includeFailed=false}={}){
+  const statuses=includeFailed?"('pending','failed')":"('pending')";
+  const filter=sourceBookingId?' AND r.source_booking_id=?':'';
+  const query=`
+    SELECT r.*,b.payment_provider,b.provider_payment_id,b.provider_customer_id,b.slot_id,b.sponsor_id
+    FROM refunds r
+    JOIN bookings b ON b.id=r.booking_id
+    WHERE r.status IN ${statuses}${filter}
+    ORDER BY r.created_at ASC
+    LIMIT 20
+  `;
+  const statement=db.prepare(query);
+  const {results=[]}=sourceBookingId
+    ?await statement.bind(sourceBookingId).all()
+    :await statement.all();
+  const processed=[];
+
+  for(const refund of results){
+    const now=new Date().toISOString();
+    const claim=await db.prepare("UPDATE refunds SET status='processing',last_error='',updated_at=? WHERE id=? AND status=?")
+      .bind(now,refund.id,refund.status).run();
+    if(!(Number(claim.meta?.changes)||0))continue;
+
+    try{
+      const issued=await issueRefund(env,refund);
+      const status=refundDbStatus(issued.status);
+      const amount=Math.max(1,Number(issued.amount_cents)||Number(refund.amount_cents));
+      await db.prepare('UPDATE refunds SET status=?,provider_refund_id=?,amount_cents=?,last_error=?,updated_at=? WHERE id=?')
+        .bind(status,issued.refund_id,amount,'',new Date().toISOString(),refund.id).run();
+      if(status==='succeeded'){
+        await db.prepare("UPDATE bookings SET status='refunded',updated_at=? WHERE id=? AND status='paid'")
+          .bind(new Date().toISOString(),refund.booking_id).run();
+      }
+      processed.push({id:refund.id,status,provider_refund_id:issued.refund_id});
+    }catch(error){
+      await db.prepare("UPDATE refunds SET status='failed',last_error=?,updated_at=? WHERE id=?")
+        .bind(String(error?.message||error).slice(0,500),new Date().toISOString(),refund.id).run();
+      processed.push({id:refund.id,status:'failed'});
+    }
+  }
+  return processed;
+}
+
+async function applyRefundWebhook(db,event){
+  let refund=null;
+  if(event.internal_refund_id){
+    refund=await db.prepare('SELECT * FROM refunds WHERE id=?').bind(event.internal_refund_id).first();
+  }
+  if(!refund&&event.refund_id){
+    refund=await db.prepare('SELECT * FROM refunds WHERE provider_refund_id=?').bind(event.refund_id).first();
+  }
+  if(!refund&&event.payment_id){
+    refund=await db.prepare(`
+      SELECT r.*
+      FROM refunds r
+      JOIN bookings b ON b.id=r.booking_id
+      WHERE b.provider_payment_id=?
+        AND r.status IN ('pending','processing','failed')
+      ORDER BY r.created_at DESC
+      LIMIT 1
+    `).bind(event.payment_id).first();
+  }
+  if(!refund)return {matched:false};
+
+  const status=event.type==='refund.succeeded'?'succeeded':'failed';
+  const amount=Math.max(1,Number(event.refund_amount_cents)||Number(refund.amount_cents));
+  await db.prepare('UPDATE refunds SET status=?,provider_refund_id=?,amount_cents=?,last_error=?,updated_at=? WHERE id=?')
+    .bind(
+      status,
+      event.refund_id||refund.provider_refund_id||'',
+      amount,
+      status==='failed'?'Dodo reported that the refund failed.':'',
+      new Date().toISOString(),
+      refund.id
+    ).run();
+
+  if(status==='succeeded'){
+    await db.prepare("UPDATE bookings SET status='refunded',updated_at=? WHERE id=? AND status='paid'")
+      .bind(new Date().toISOString(),refund.booking_id).run();
+  }
+  return {matched:true,id:refund.id,status};
 }
 
 async function route(request,env,ctx){
@@ -185,28 +277,39 @@ async function route(request,env,ctx){
     if(existing?.status==='processed')return ok({duplicate:true});
     if(!existing){
       await db.prepare('INSERT INTO payment_events(provider,event_id,event_type,booking_id,payload_json,status,created_at) VALUES(?,?,?,?,?,?,?)')
-        .bind(event.provider,event.event_id,event.type,event.booking_id,event.payload_json||'', 'received',new Date().toISOString()).run();
+        .bind(event.provider,event.event_id,event.type,event.booking_id||'',event.payload_json||'', 'received',new Date().toISOString()).run();
     }
     try{
+      let refundResult=null;
       if(event.type==='payment.succeeded'){
         await finalizePaidBooking(db,{
           bookingId:event.booking_id,provider:event.provider,paymentId:event.payment_id,
           customerId:event.customer_id||'',amountCents:event.amount_cents
         });
+        if(automaticTestRefundsEnabled(env)){
+          refundResult=await processRefundQueue(db,env,{sourceBookingId:event.booking_id});
+        }
       }else if(event.type==='payment.failed'){
         await markPaymentFailed(db,{
           bookingId:event.booking_id,provider:event.provider,paymentId:event.payment_id,
           customerId:event.customer_id||''
         });
+      }else if(event.type==='payment.cancelled'){
+        await markPaymentCancelled(db,{
+          bookingId:event.booking_id,provider:event.provider,paymentId:event.payment_id,
+          customerId:event.customer_id||''
+        });
+      }else if(event.type==='refund.succeeded'||event.type==='refund.failed'){
+        refundResult=await applyRefundWebhook(db,event);
       }
       await db.prepare("UPDATE payment_events SET status='processed',processed_at=? WHERE provider=? AND event_id=?")
         .bind(new Date().toISOString(),event.provider,event.event_id).run();
+      return ok({processed:true,refund:refundResult});
     }catch(error){
       await db.prepare("UPDATE payment_events SET status='failed',last_error=? WHERE provider=? AND event_id=?")
         .bind(String(error?.message||error).slice(0,500),event.provider,event.event_id).run();
       throw error;
     }
-    return ok({processed:true});
   }
 
   if(path==='/api/me'&&method==='GET'){
@@ -298,26 +401,7 @@ async function route(request,env,ctx){
   if(path==='/api/admin/refunds/process'&&method==='POST'){
     admin(request,env);
     if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Automated refunds are not configured.');
-    const db=requireDb(env);
-    const {results=[]}=await db.prepare(`
-      SELECT r.*,b.payment_provider,b.provider_payment_id,b.provider_customer_id
-      FROM refunds r JOIN bookings b ON b.id=r.booking_id
-      WHERE r.status='pending' ORDER BY r.created_at ASC LIMIT 20
-    `).all();
-    const processed=[];
-    for(const refund of results){
-      try{
-        await db.prepare("UPDATE refunds SET status='processing',updated_at=? WHERE id=?").bind(new Date().toISOString(),refund.id).run();
-        const issued=await issueRefund(env,refund);
-        await db.prepare("UPDATE refunds SET status='succeeded',provider_refund_id=?,updated_at=? WHERE id=?")
-          .bind(issued.refund_id,new Date().toISOString(),refund.id).run();
-        processed.push({id:refund.id,status:'succeeded'});
-      }catch(error){
-        await db.prepare("UPDATE refunds SET status='failed',last_error=?,updated_at=? WHERE id=?")
-          .bind(String(error?.message||error).slice(0,500),new Date().toISOString(),refund.id).run();
-        processed.push({id:refund.id,status:'failed'});
-      }
-    }
+    const processed=await processRefundQueue(requireDb(env),env,{includeFailed:true});
     return ok({processed});
   }
 
