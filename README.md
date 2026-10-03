@@ -60,12 +60,12 @@ The backend includes:
 - Atomic D1 spot holds with an expiring checkout window.
 - Optimistic spot version checks before payment finalization.
 - Booking records and hashed management tokens.
-- R2 logo storage with private drafts and public assets only after a paid booking is finalized.
+- R2 logo storage with private drafts, an admin approval state, and public assets only after a paid booking is finalized.
 - Payment-event idempotency and a provider adapter boundary.
 - Conflict handling that creates a refund-required record instead of stealing a changed spot.
 - Takeover refund queue records for the previous sponsor.
 - Print-lock enforcement.
-- Admin endpoints protected by `ADMIN_SECRET`.
+- Admin endpoints protected by `ADMIN_SECRET`, including logo approval/rejection and refund status management.
 - A disabled test-only paid-booking finalizer for backend QA.
 - Public sponsor state and view-count plumbing.
 - A same-origin frontend adapter that will automatically read the shared backend once the Worker API is activated.
@@ -83,8 +83,19 @@ The backend includes:
 5. Add secrets:
    `npx wrangler secret put ADMIN_SECRET`
    `npx wrangler secret put VIEW_HASH_SALT`
+   If Turnstile is required, also add `TURNSTILE_SECRET` and set `TURNSTILE_REQUIRED=true`.
 6. Keep `PAYMENTS_ENABLED=false` and `bookings_open=0` until the real payment adapter and webhook verification are connected and tested.
 7. After the bindings exist, replace `wrangler.jsonc` with the backend config values and deploy.
 8. Only after payment/refund tests pass should `bookings_open` and `PAYMENTS_ENABLED` be enabled.
 
 The payment-provider-specific code is isolated in `server/payment-provider.mjs`. Real checkout creation, webhook signature verification and provider refund calls should be implemented there without changing the booking/auction consistency layer. The app no longer clears site storage on page load, so future secure booking-management tokens can persist once real checkout is enabled.
+
+
+### Backend safety rules already enforced
+
+- An uploaded logo starts as `pending`; checkout cannot start until an admin marks it `approved`.
+- A payment webhook cannot finalize a booking unless its spot hold is still valid, the server-side minimum still matches, the spot version has not changed, the logo is approved, and the print lock has not passed.
+- If money succeeds after the spot became invalid, the booking becomes `conflict_refund_required` and a refund queue item is created instead of replacing the current sponsor.
+- Expired checkout holds are cleaned and their bookings are marked expired when new booking attempts arrive.
+- Sponsor profile edits after payment require the hashed booking-management token.
+- Optional Turnstile verification is built into booking preparation for bot-abuse protection.
