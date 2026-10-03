@@ -86,6 +86,8 @@ async function route(request,env,ctx){
       bookings_open:settings.bookings_open==='1'&&paymentProviderReady(env),
       database_bookings_open:settings.bookings_open==='1',
       payment_provider_ready:paymentProviderReady(env),
+      payment_provider:env.PAYMENT_PROVIDER||'none',
+      payment_environment:env.DODO_ENVIRONMENT||'',
       print_lock_at:settings.print_lock_at||'',
       terms_version:settings.terms_version||''
     });
@@ -127,8 +129,8 @@ async function route(request,env,ctx){
     await bucket.put(key,body,{httpMetadata:{contentType,cacheControl:'public, max-age=31536000, immutable'}});
     try{
       await db.batch([
-        db.prepare("INSERT INTO assets(id,booking_id,object_key,content_type,size_bytes,is_public,moderation_status,created_at) VALUES(?,?,?,?,?,0,'pending',?)")
-          .bind(assetId,booking.id,key,contentType,body.byteLength,new Date().toISOString()),
+        db.prepare("INSERT INTO assets(id,booking_id,object_key,content_type,size_bytes,is_public,moderation_status,created_at) VALUES(?,?,?,?,?,0,?,?)")
+          .bind(assetId,booking.id,key,contentType,body.byteLength,env.AUTO_APPROVE_LOGOS==='true'?'approved':'pending',new Date().toISOString()),
         db.prepare('UPDATE bookings SET logo_asset_id=?,updated_at=? WHERE id=?')
           .bind(assetId,new Date().toISOString(),booking.id)
       ]);
