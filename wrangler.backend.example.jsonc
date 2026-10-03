@@ -25,8 +25,12 @@
   "vars": {
     "BOOKING_HOLD_MINUTES": "15",
     "PAYMENTS_ENABLED": "false",
-    "PAYMENT_PROVIDER": "none",
+    "PAYMENT_PROVIDER": "dodo",
     "ALLOW_TEST_PAYMENTS": "false",
+    "DODO_ENVIRONMENT": "test_mode",
+    "DODO_PRODUCT_ID": "REPLACE_WITH_TEST_PRODUCT_ID",
+    "DODO_RETURN_URL": "https://REPLACE_WITH_YOUR_DOMAIN/?payment=complete",
+    "DODO_CANCEL_URL": "https://REPLACE_WITH_YOUR_DOMAIN/?payment=cancelled",
     "TURNSTILE_REQUIRED": "false"
   }
 }
