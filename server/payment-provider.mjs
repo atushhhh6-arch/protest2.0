@@ -1,14 +1,20 @@
 import {ApiError} from './core.mjs';
 
-const environmentBase=env=>env.DODO_ENVIRONMENT==='live_mode'
-  ?'https://live.dodopayments.com'
-  :'https://test.dodopayments.com';
+const validEnvironment=env=>env.DODO_ENVIRONMENT==='live_mode'||env.DODO_ENVIRONMENT==='test_mode';
+
+const environmentBase=env=>{
+  if(env.DODO_ENVIRONMENT==='live_mode')return 'https://live.dodopayments.com';
+  if(env.DODO_ENVIRONMENT==='test_mode')return 'https://test.dodopayments.com';
+  throw new ApiError(503,'DODO_ENVIRONMENT_INVALID','Dodo Payments environment is not configured correctly.');
+};
 
 export function paymentProviderReady(env){
   return env.PAYMENTS_ENABLED==='true'&&
     env.PAYMENT_PROVIDER==='dodo'&&
+    validEnvironment(env)&&
     Boolean(env.DODO_PAYMENTS_API_KEY)&&
-    Boolean(env.DODO_PRODUCT_ID);
+    Boolean(env.DODO_PRODUCT_ID)&&
+    Boolean(env.DODO_PAYMENTS_WEBHOOK_KEY);
 }
 
 const absoluteUrl=(value,request,fallbackPath)=>{
@@ -49,7 +55,7 @@ async function dodoPost(env,path,body,operation='checkout'){
 }
 
 export async function createCheckoutSession(env,booking,request){
-  if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Dodo Payments test mode is not fully configured.');
+  if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Dodo Payments is not fully configured.');
   const returnUrl=absoluteUrl(
     env.DODO_RETURN_URL,
     request,
