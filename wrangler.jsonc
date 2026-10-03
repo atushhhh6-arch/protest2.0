@@ -25,6 +25,8 @@
     "TURNSTILE_REQUIRED": "false",
     "AUTO_APPROVE_LOGOS": "true",
     "AUTO_REFUNDS_TEST_MODE": "true",
-    "AUTO_REFUNDS_LIVE_MODE": "true"
+    "AUTO_REFUNDS_LIVE_MODE": "true",
+    "FRESH_LAUNCH_RESET": "true",
+    "FRESH_LAUNCH_RESET_KEY": "fresh_launch_reset_2026_10_03_v1"
   }
 }
