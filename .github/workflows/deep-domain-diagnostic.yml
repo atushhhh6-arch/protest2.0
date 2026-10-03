@@ -12,31 +12,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check DNS propagation and TLS paths
+      - name: Verify root and www custom-domain paths
         shell: bash
         run: |
           set +e
-          echo "=== Authoritative NS ==="
-          dig +short NS protestayush.lol
+          echo "=== ROOT DNS @1.1.1.1 ==="
+          dig @1.1.1.1 +short A protestayush.lol || true
+          echo "=== WWW DNS @1.1.1.1 ==="
+          dig @1.1.1.1 +short A www.protestayush.lol || true
+          echo "=== ROOT HTTPS ==="
+          curl -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,80p' || true
+          echo "=== WWW HTTPS ==="
+          curl -sSvkI --max-time 20 https://www.protestayush.lol/ 2>&1 | sed -n '1,80p' || true
+          echo "=== ROOT HEALTH ==="
+          curl -sS --max-time 20 https://protestayush.lol/api/health || true
           echo
-          for r in 1.1.1.1 8.8.8.8 9.9.9.9; do
-            echo "=== Resolver $r A ==="
-            dig @$r +short A protestayush.lol
-            echo "=== Resolver $r AAAA ==="
-            dig @$r +short AAAA protestayush.lol
-          done
+          echo "=== WWW HEALTH ==="
+          curl -sS --max-time 20 https://www.protestayush.lol/api/health || true
           echo
-          echo "=== HTTPS normal ==="
-          curl -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,90p'
-          echo
-          echo "=== HTTPS forced IPv4 ==="
-          curl -4 -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,90p'
-          echo
-          echo "=== HTTPS forced IPv6 ==="
-          curl -6 -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,90p'
-          echo
-          echo "=== Old GoDaddy parking IP 15.197.148.33 with SNI ==="
-          curl -sSvkI --max-time 15 --resolve protestayush.lol:443:15.197.148.33 https://protestayush.lol/ 2>&1 | sed -n '1,100p'
-          echo
-          echo "=== Old GoDaddy parking IP 3.33.130.190 with SNI ==="
-          curl -sSvkI --max-time 15 --resolve protestayush.lol:443:3.33.130.190 https://protestayush.lol/ 2>&1 | sed -n '1,100p'
