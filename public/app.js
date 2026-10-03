@@ -15,7 +15,7 @@ function imageFor(p){const img=el('img');img.src=p.logo;img.alt=p.brand+' logo';
 function revealSpot(id){document.querySelector('[data-view="both"]').click();const button=document.querySelector(`[data-spot="${id}"]`);button.scrollIntoView({behavior:'smooth',block:'center'});button.focus({preventScroll:true});button.classList.remove('spot-highlight');void button.offsetWidth;button.classList.add('spot-highlight');}
 function render(){const current=state();$('#sponsor-total').textContent=money(total(current));$('#spots-filled').textContent=Object.keys(current.spots).length+' / 12';const summary=document.querySelectorAll('.auction-summary>div');summary[0].querySelector('span').textContent='SPONSOR TOTAL';summary[1].querySelector('span').textContent='CONFIRMED SPOTS';summary[0].querySelector('small').textContent='Current winning sponsorship amounts';$('.activity-head span').textContent='SPONSOR ACTIVITY';
 for(const b of document.querySelectorAll('[data-spot]')){const id=b.dataset.spot,p=current.spots[id];b.replaceChildren();b.classList.toggle('occupied',Boolean(p));if(p){b.append(imageFor(p));b.title=p.brand+' · View profile';b.setAttribute('aria-label',id+' · View '+p.brand+' profile');}else{b.append(el('span','＋ '+id),el('strong',money(placements[id].base)));b.title='';b.setAttribute('aria-label',id+' · '+placements[id].name+' · '+money(placements[id].base));}}
-const wall=$('#sponsors-grid');const previousIds=new Map([...wall.children].filter(n=>n.dataset?.slot).map(n=>[n.dataset.slot,n.dataset.claim]));wall.replaceChildren();const entries=Object.entries(current.spots);wall.classList.toggle('has-brands',entries.length>0);for(const [id,p] of entries){const button=el('button',undefined,'wall-logo');button.type='button';button.dataset.slot=id;button.dataset.claim=p.id;button.setAttribute('aria-label','View '+p.brand+' on '+placements[id].name);if(previousIds.get(id)!==p.id)button.classList.add('new-claim');const frame=el('div',undefined,'wall-logo-frame');frame.append(imageFor(p));button.append(frame,el('strong',p.brand),el('span',placements[id].location+' · '+id));button.onclick=()=>openProfile(p,button,id);wall.append(button);}if(!entries.length){const empty=el('div',undefined,'wall-empty');empty.append(el('span','YOUR BRAND GOES HERE'),el('p','Claim a spot to join the wall.'));wall.append(empty);}
+const wall=$('#sponsors-grid');const entries=Object.entries(current.spots);wall.classList.toggle('has-brands',entries.length>0);const gravityLocked=wall.classList.contains('gravity-active');if(!gravityLocked){const previousIds=new Map([...wall.children].filter(n=>n.dataset?.slot).map(n=>[n.dataset.slot,n.dataset.claim]));wall.replaceChildren();for(const [id,p] of entries){const button=el('button',undefined,'wall-logo');button.type='button';button.dataset.slot=id;button.dataset.claim=p.id;button.setAttribute('aria-label','View '+p.brand+' on '+placements[id].name);if(previousIds.get(id)!==p.id)button.classList.add('new-claim');const frame=el('div',undefined,'wall-logo-frame');frame.append(imageFor(p));button.append(frame,el('strong',p.brand),el('span',placements[id].location+' · '+id));button.onclick=()=>openProfile(p,button,id);wall.append(button);}if(!entries.length){const empty=el('div',undefined,'wall-empty');empty.append(el('span','YOUR BRAND GOES HERE'),el('p','Claim a spot to join the wall.'));wall.append(empty);}}
 for(const side of ['front','back']){const list=$('#'+side+'-spot-list');list.replaceChildren();for(const [id,placement] of Object.entries(placements).filter(([id])=>id.startsWith(side==='front'?'F':'B'))){const owner=current.spots[id],row=el('button',undefined,'directory-row');row.type='button';const title=el('div',undefined,'directory-row-head');title.append(el('span',id,'directory-code'),el('strong',placement.name));const status=el('span',undefined,'directory-status');if(owner){status.append(imageFor(owner),el('b',owner.brand),el('small','CLAIMED'));row.classList.add('claimed');}else status.append(el('b',money(placement.base)),el('small','AVAILABLE'));title.append(status);row.append(title,el('p',placement.description));if(owner)row.append(el('span','Next takeover '+money(minimum(current,id)),'directory-next'));row.onclick=()=>owner?openProfile(owner,row,id):openSpot(id,row);list.append(row);}}
 const list=$('#activity-list');list.replaceChildren();for(const event of current.history.slice(0,12)){const li=el('li');const b=el('button',event.brand,'transaction-brand');const p=model.profiles?.[event.profileId]||Object.values(model.profiles||{}).find(p=>p.brand===event.brand);if(p)b.onclick=()=>openProfile(p,b);else b.disabled=true;li.append(b,el('span',event.slot+' · '+money(event.amount)),el('small',event.previous?'Takeover · previous sponsor amount '+money(event.previous.amount):'Placement'));list.append(li);}if(!list.children.length)list.append(el('li','Your placement story starts here.','empty-state'));
 const nav=$('#my-profile');nav.replaceChildren(el('span','My Profile'));nav.setAttribute('aria-label','My Profile');
@@ -419,10 +419,10 @@ function createGravityPlayground(){
     toggle.classList.remove('sensor-live','pointer-live');
     hint.textContent='Tilt your phone to move the logos.';
     prepareBodies();
-    await enableSensors();
     last=performance.now();
     cancelAnimationFrame(raf);
     raf=requestAnimationFrame(step);
+    enableSensors().catch(()=>{});
   }
 
   function turnOff(){
@@ -438,6 +438,7 @@ function createGravityPlayground(){
     bodies=[];
     sensorLive=false;pointerLive=false;
     gravity={x:0,y:920};
+    render();
   }
 
   toggle.addEventListener('click',()=>active?turnOff():turnOn());
