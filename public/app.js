@@ -1,10 +1,10 @@
 import {placements,money,parseAmount,minimum,total} from './auction-core.mjs';
 import {freshPreview,profileKey,profileActivity,recordProfileView,editSavedProfile,safeWebsite} from './preview-state.mjs';
 import {createLogoEditor} from './logo-editor.mjs';
-import {fetchSharedModel,recordSharedView} from './backend-client.mjs';
+import {fetchSharedModel,recordSharedView,fetchBackendConfig,prepareBooking,uploadBookingLogo,createPaymentSession} from './backend-client.mjs';
 const $=s=>document.querySelector(s);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
-let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement',sharedBackend=false;
+let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement',sharedBackend=false,backendConfig={available:false,bookings_open:false,payment_environment:''},checkoutPending=false;
 const seenProfiles=new Set();
 const state=()=>model.auction;
 function show(dialog,origin){dialog._opener=origin||document.activeElement;if(!dialog.open)dialog.showModal();dialog.scrollTop=0;requestAnimationFrame(()=>{dialog.scrollTop=0;});document.body.classList.add('modal-open');}
@@ -141,7 +141,18 @@ $('#account-add-spot').onclick=()=>{$('#account-dialog').close();$('#spots').scr
 function openEdit(p,origin){editingKey=profileKey(p);editLogo=p.logo;$('#edit-owner').value=p.owner||'';$('#edit-brand').value=p.brand;$('#edit-description').value=p.description;$('#edit-website').value=p.website||'';$('#edit-x').value=p.x||'';$('#edit-logo-preview').src=p.logo;$('#edit-logo-upload').value='';$('#edit-error').textContent='';show($('#edit-profile-dialog'),origin);}
 $('#edit-profile-form').onsubmit=e=>{e.preventDefault();try{if(uploadPending)throw Error('Wait for your logo to finish loading.');if(!$('#edit-profile-form').reportValidity())return;const next=editSavedProfile(model,editingKey,{brand:$('#edit-brand').value,owner:$('#edit-owner').value,description:$('#edit-description').value,website:$('#edit-website').value,x:$('#edit-x').value,logo:editLogo});commit(next);$('#edit-profile-dialog').close();openAccount();if(storageProblem)$('#preview-feedback').textContent=storageProblem;}catch(error){$('#edit-error').textContent=error.message;}};
 $('#edit-logo-upload').onchange=()=>{const file=$('#edit-logo-upload').files[0];$('#edit-logo-upload').value='';if(!file)return;editor.clear();if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5*1024*1024){$('#edit-error').textContent='Choose a PNG, JPG or WebP smaller than 5 MB.';return;}cropTarget='profile';const request=++uploadTicket;uploadPending=true;$('#edit-save').disabled=true;const reader=new FileReader();reader.onload=()=>{if(request===uploadTicket)editor.open(reader.result,{name:'Profile logo',ratio:1},$('#edit-logo-upload'));};reader.onerror=()=>{if(request===uploadTicket){uploadPending=false;$('#edit-save').disabled=false;$('#edit-error').textContent='Could not read that image.';}};reader.readAsDataURL(file);};
-function updatePay(){const button=$('#submit-bid');button.textContent='Bookings opening soon';button.disabled=true;}
+function updatePay(){
+  const button=$('#submit-bid');
+  if(!backendConfig.bookings_open){
+    button.textContent='Bookings opening soon';
+    button.disabled=true;
+    return;
+  }
+  let label=backendConfig.payment_environment==='test_mode'?'Pay in Dodo test mode':'Continue to secure payment';
+  try{label+=(backendConfig.payment_environment==='test_mode'?' · ':' · ')+money(parseAmount($('#bid-amount').value));}catch{}
+  button.textContent=checkoutPending?'Opening secure checkout…':uploadPending?'Loading logo…':label;
+  button.disabled=checkoutPending||uploadPending;
+}
 function previewLogo(){const p=$('#crop-preview');p.hidden=!logo;$('#cropped-logo').src=logo||'';}
 const editor=createLogoEditor({onSave:(result,source)=>{if(cropTarget==='profile'){editLogo=result;$('#edit-logo-preview').src=result;return;}logo=result;logoSource=source;previewLogo();$('#bid-error').textContent='';},onBusy:value=>{uploadPending=value;$('#edit-save').disabled=value;updatePay();},onError:message=>$(cropTarget==='profile'?'#edit-error':'#bid-error').textContent=message,openDialog:show});
 function clearLogo(){++uploadTicket;editor.clear();logo='';logoSource='';$('#logo-upload').value='';previewLogo();}
@@ -151,7 +162,32 @@ function updateAmount(){updatePay();try{const amount=parseAmount($('#bid-amount'
 $('#bid-amount').oninput=updateAmount;
 $('#logo-upload').onchange=()=>{cropTarget='placement';const file=$('#logo-upload').files[0];$('#logo-upload').value='';if(!file)return;const request=++uploadTicket;editor.clear();if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5*1024*1024){$('#bid-error').textContent='Choose a PNG, JPG or WebP smaller than 5 MB.';return;}uploadPending=true;updatePay();const reader=new FileReader();reader.onload=()=>{if(request!==uploadTicket)return;editor.open(reader.result,placements[selected],$('#logo-upload'));};reader.onerror=()=>{if(request===uploadTicket){uploadPending=false;updatePay();$('#bid-error').textContent='Could not read this image.';}};reader.readAsDataURL(file);};
 $('#adjust-logo').onclick=()=>{cropTarget='placement';if(logoSource)editor.open(logoSource,placements[selected],$('#adjust-logo'),true);};
-$('#bid-form').onsubmit=e=>{e.preventDefault();$('#bid-error').textContent='Bookings are not open yet. Payment checkout must be connected before a spot can be confirmed.';};
+$('#bid-form').onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    if(!backendConfig.bookings_open)throw Error('Bookings are not open yet.');
+    if(!$('#bid-form').reportValidity())return;
+    if(uploadPending)throw Error('Wait for your logo to load.');
+    if(!logo)throw Error('Choose a logo and press Use this logo.');
+    checkoutPending=true;updatePay();$('#bid-error').textContent='';
+    const prepared=await prepareBooking({
+      slot_id:selected,
+      amount_cents:parseAmount($('#bid-amount').value),
+      owner_name:$('#owner-name').value,
+      brand_name:$('#brand').value,
+      description:$('#description').value,
+      website:$('#website').value,
+      x_handle:$('#x-handle').value.trim(),
+      terms_version:backendConfig.terms_version||'2026-10-03'
+    });
+    const logoBlob=await fetch(logo).then(response=>response.blob());
+    await uploadBookingLogo(prepared.booking_id,prepared.manage_token,logoBlob);
+    const session=await createPaymentSession(prepared.booking_id,prepared.manage_token);
+    window.location.assign(session.checkout_url);
+  }catch(error){
+    checkoutPending=false;updatePay();$('#bid-error').textContent=error.message||'Could not start checkout.';
+  }
+};
 for(const b of document.querySelectorAll('[data-spot]'))b.onclick=()=>{const p=state().spots[b.dataset.spot];if(p)openProfile(p,b,b.dataset.spot);else openSpot(b.dataset.spot,b);};
 for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>{document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));document.querySelectorAll('[data-side]').forEach(card=>card.hidden=button.dataset.view!=='both'&&card.dataset.side!==button.dataset.view);$('.model-grid').classList.toggle('single',button.dataset.view!=='both');};
 for(const dialog of document.querySelectorAll('dialog')){dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});dialog.addEventListener('close',()=>{if(dialog.id==='spot-dialog'&&!dialog.open)clearLogo();if(dialog.id==='edit-profile-dialog'&&!dialog.open){++uploadTicket;editor.clear();}const top=[...document.querySelectorAll('dialog[open]')].at(-1);if(!top)document.body.classList.remove('modal-open');if(dialog._opener?.isConnected&&(!top||top.contains(dialog._opener)))dialog._opener.focus();});}
@@ -200,9 +236,16 @@ async function hydrateSharedState(){
   render();
   return true;
 }
+async function hydrateBackendConfig(){
+  backendConfig=await fetchBackendConfig();
+  updatePay();
+}
+const paymentReturn=new URLSearchParams(location.search).get('payment');
+if(paymentReturn==='complete')$('#preview-feedback').textContent='Payment submitted. The sponsor spot will update after Dodo confirms the payment webhook.';
+if(paymentReturn==='cancelled')$('#preview-feedback').textContent='Payment was cancelled. No sponsor spot was confirmed.';
 render();
-hydrateSharedState().then(available=>{
+Promise.all([hydrateSharedState(),hydrateBackendConfig()]).then(([available])=>{
   if(!available)return;
-  setInterval(()=>{if(!document.hidden)hydrateSharedState();},15000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)hydrateSharedState();});
+  setInterval(()=>{if(!document.hidden){hydrateSharedState();hydrateBackendConfig();}},15000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){hydrateSharedState();hydrateBackendConfig();}});
 });
