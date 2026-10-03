@@ -20,9 +20,9 @@ const bearer=request=>{
   if(!match)throw new ApiError(401,'AUTH_REQUIRED','Booking access token is required.');
   return match[1].trim();
 };
-const admin=request=>{
+const admin=(request,env)=>{
   const value=request.headers.get('authorization')||'';
-  const expected=request.__env?.ADMIN_SECRET;
+  const expected=env.ADMIN_SECRET;
   if(!expected||value!==`Bearer ${expected}`)throw new ApiError(401,'ADMIN_AUTH_REQUIRED','Admin authorization failed.');
 };
 const randomToken=()=>{
@@ -46,7 +46,6 @@ async function viewerHash(request,env){
 }
 
 async function route(request,env,ctx){
-  request.__env=env;
   const url=new URL(request.url);
   const path=url.pathname;
   const method=request.method.toUpperCase();
@@ -194,7 +193,7 @@ async function route(request,env,ctx){
   }
 
   if(path==='/api/admin/overview'&&method==='GET'){
-    admin(request);
+    admin(request,env);
     const db=requireDb(env);
     const [bookings,refunds,holds]=await Promise.all([
       db.prepare("SELECT id,slot_id,amount_cents,status,brand_name,created_at,paid_at FROM bookings ORDER BY created_at DESC LIMIT 100").all(),
@@ -205,7 +204,7 @@ async function route(request,env,ctx){
   }
 
   if(path==='/api/admin/settings'&&method==='POST'){
-    admin(request);
+    admin(request,env);
     const db=requireDb(env),body=await parseJson(request),now=new Date().toISOString();
     const statements=[];
     if(typeof body.bookings_open==='boolean')statements.push(db.prepare("INSERT INTO settings(key,value,updated_at) VALUES('bookings_open',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(body.bookings_open?'1':'0',now));
@@ -220,7 +219,7 @@ async function route(request,env,ctx){
 
   const refundMatch=path.match(/^\/api\/admin\/refunds\/([^/]+)\/status$/);
   if(refundMatch&&method==='POST'){
-    admin(request);
+    admin(request,env);
     const db=requireDb(env),body=await parseJson(request);
     const allowed=new Set(['pending','processing','succeeded','failed']);
     if(!allowed.has(body.status))throw new ApiError(400,'INVALID_REFUND_STATUS','Invalid refund status.');
@@ -231,7 +230,7 @@ async function route(request,env,ctx){
 
   const testPaid=path.match(/^\/api\/admin\/bookings\/([^/]+)\/mark-paid$/);
   if(testPaid&&method==='POST'){
-    admin(request);
+    admin(request,env);
     if(env.ALLOW_TEST_PAYMENTS!=='true')throw new ApiError(403,'TEST_PAYMENTS_DISABLED','Test payment finalization is disabled.');
     const db=requireDb(env),id=decodeURIComponent(testPaid[1]);
     const booking=await db.prepare('SELECT * FROM bookings WHERE id=?').bind(id).first();
@@ -241,7 +240,7 @@ async function route(request,env,ctx){
   }
 
   if(path==='/api/admin/refunds/process'&&method==='POST'){
-    admin(request);
+    admin(request,env);
     if(!paymentProviderReady(env))throw new ApiError(503,'PAYMENT_PROVIDER_NOT_CONFIGURED','Automated refunds are not configured.');
     const db=requireDb(env);
     const {results=[]}=await db.prepare("SELECT * FROM refunds WHERE status='pending' ORDER BY created_at ASC LIMIT 20").all();

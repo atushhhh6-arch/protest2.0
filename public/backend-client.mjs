@@ -74,3 +74,38 @@ export async function fetchOwnedBookings(){
   }
   return items;
 }
+
+
+export async function prepareBooking(payload){
+  const response=await fetch('/api/bookings/prepare',{
+    method:'POST',
+    headers:{'content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify(payload)
+  });
+  const data=await response.json().catch(()=>({ok:false,error:'INVALID_RESPONSE',message:'Backend returned an invalid response.'}));
+  if(!response.ok||!data.ok)throw new Error(data.message||'Could not prepare booking.');
+  rememberManageToken(data.manage_token);
+  return data;
+}
+
+export async function uploadBookingLogo(bookingId,manageToken,blob){
+  const response=await fetch('/api/bookings/'+encodeURIComponent(bookingId)+'/logo',{
+    method:'PUT',
+    headers:{authorization:'Bearer '+manageToken,'content-type':blob.type||'application/octet-stream',accept:'application/json'},
+    body:blob
+  });
+  const data=await response.json().catch(()=>({ok:false,message:'Backend returned an invalid response.'}));
+  if(!response.ok||!data.ok)throw new Error(data.message||'Could not upload logo.');
+  return data;
+}
+
+export async function createPaymentSession(bookingId,manageToken){
+  const response=await fetch('/api/payments/session',{
+    method:'POST',
+    headers:{authorization:'Bearer '+manageToken,'content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({booking_id:bookingId})
+  });
+  const data=await response.json().catch(()=>({ok:false,message:'Backend returned an invalid response.'}));
+  if(!response.ok||!data.ok)throw new Error(data.message||'Could not start payment.');
+  return data;
+}

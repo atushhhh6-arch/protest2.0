@@ -1,12 +1,11 @@
 import {placements,money,parseAmount,minimum,total} from './auction-core.mjs';
-import {freshPreview,profileKey,profileActivity,recordProfileView,editSavedProfile,safeWebsite,clearWebsiteStorage} from './preview-state.mjs';
+import {freshPreview,profileKey,profileActivity,recordProfileView,editSavedProfile,safeWebsite} from './preview-state.mjs';
 import {createLogoEditor} from './logo-editor.mjs';
 import {fetchSharedModel,recordSharedView} from './backend-client.mjs';
 const $=s=>document.querySelector(s);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement',sharedBackend=false;
 const seenProfiles=new Set();
-try{clearWebsiteStorage(localStorage);clearWebsiteStorage(sessionStorage);}catch{}
 const state=()=>model.auction;
 function show(dialog,origin){dialog._opener=origin||document.activeElement;if(!dialog.open)dialog.showModal();dialog.scrollTop=0;requestAnimationFrame(()=>{dialog.scrollTop=0;});document.body.classList.add('modal-open');}
 function commit(next){model=next;storageProblem='';render();return true;}

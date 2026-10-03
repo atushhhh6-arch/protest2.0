@@ -69,6 +69,7 @@ The backend includes:
 - A disabled test-only paid-booking finalizer for backend QA.
 - Public sponsor state and view-count plumbing.
 - A same-origin frontend adapter that will automatically read the shared backend once the Worker API is activated.
+- Booking/client helper functions for prepare → logo upload → checkout session, while the public submit button remains disabled until payments are connected.
 
 ### One-time Cloudflare setup before payment integration
 
@@ -86,4 +87,4 @@ The backend includes:
 7. After the bindings exist, replace `wrangler.jsonc` with the backend config values and deploy.
 8. Only after payment/refund tests pass should `bookings_open` and `PAYMENTS_ENABLED` be enabled.
 
-The payment-provider-specific code is isolated in `server/payment-provider.mjs`. Real checkout creation, webhook signature verification and provider refund calls should be implemented there without changing the booking/auction consistency layer.
+The payment-provider-specific code is isolated in `server/payment-provider.mjs`. Real checkout creation, webhook signature verification and provider refund calls should be implemented there without changing the booking/auction consistency layer. The app no longer clears site storage on page load, so future secure booking-management tokens can persist once real checkout is enabled.

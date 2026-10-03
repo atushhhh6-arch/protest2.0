@@ -162,10 +162,15 @@ export async function finalizePaidBooking(db,{bookingId,provider,paymentId,custo
             AND p.print_locked=0
             AND bookings.amount_cents>=CASE WHEN COALESCE(p.current_amount_cents,0)>0 THEN p.current_amount_cents*2 ELSE p.base_cents END
         )
-    `).bind(provider,paymentId,customerId,now.toISOString(),bookingId,now.toISOString()),
+        AND NOT EXISTS(
+          SELECT 1 FROM settings
+          WHERE key='print_lock_at' AND value<>'' AND value<=?
+        )
+    `).bind(provider,paymentId,customerId,now.toISOString(),bookingId,now.toISOString(),now.toISOString()),
     db.prepare(`
       INSERT INTO activity(id,event_type,slot_id,sponsor_id,booking_id,amount_cents,previous_booking_id,previous_brand_name,created_at)
-      SELECT ?, 'placement', b.slot_id, ?, b.id, b.amount_cents, p.current_booking_id, s.brand_name, ?
+      SELECT ?, CASE WHEN p.current_booking_id IS NULL THEN 'placement' ELSE 'takeover' END,
+             b.slot_id, ?, b.id, b.amount_cents, p.current_booking_id, s.brand_name, COALESCE(p.current_amount_cents,0), ?
       FROM bookings b
       JOIN placements p ON p.slot_id=b.slot_id
       LEFT JOIN sponsors s ON s.id=p.current_sponsor_id

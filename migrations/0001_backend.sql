@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS activity (
   amount_cents INTEGER NOT NULL,
   previous_booking_id TEXT,
   previous_brand_name TEXT NOT NULL DEFAULT '',
+  previous_amount_cents INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 
