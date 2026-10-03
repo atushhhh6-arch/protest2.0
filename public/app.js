@@ -204,4 +204,19 @@ window.addEventListener('storage',event=>{
 if(syncChannel)syncChannel.onmessage=event=>{
   if(event.data?.type==='reset')refreshFromStorage('Sponsorship data was reset in another tab.',true);
 };
+const reelsTrack=$('#reels-track');
+if(reelsTrack){
+  const moveReels=direction=>{
+    const firstCard=reelsTrack.querySelector('.reel-card');
+    const step=(firstCard?.getBoundingClientRect().width||320)+18;
+    reelsTrack.scrollBy({left:direction*step,behavior:'smooth'});
+  };
+  $('#reels-prev')?.addEventListener('click',()=>moveReels(-1));
+  $('#reels-next')?.addEventListener('click',()=>moveReels(1));
+  reelsTrack.addEventListener('keydown',event=>{
+    if(event.key==='ArrowRight'){event.preventDefault();moveReels(1);}
+    if(event.key==='ArrowLeft'){event.preventDefault();moveReels(-1);}
+  });
+}
+
 render();
