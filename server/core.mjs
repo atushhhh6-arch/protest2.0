@@ -77,3 +77,14 @@ export function validateLogoMeta(contentType,size){
 export function logoExtension(contentType){
   return contentType==='image/png'?'png':contentType==='image/webp'?'webp':'jpg';
 }
+
+
+export function normalizeProfileUpdate(body){
+  if(!body||typeof body!=='object')throw new ApiError(400,'INVALID_BODY','Send profile details as JSON.');
+  return {
+    ownerName:clean(body.owner_name,80,'owner name'),
+    description:clean(body.description,300,'description',{required:true}),
+    website:safePublicUrl(body.website),
+    xHandle:normalizeX(body.x_handle)
+  };
+}
