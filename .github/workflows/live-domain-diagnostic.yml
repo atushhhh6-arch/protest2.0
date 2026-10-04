@@ -1,0 +1,32 @@
+name: Live Domain Diagnostic
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check live DNS, DNSSEC and TLS
+        shell: bash
+        run: |
+          set +e
+          echo "=== TIME ==="; date -u
+          echo "=== PARENT NS ==="; dig +trace NS protestayush.lol | tail -n 25
+          echo "=== DS ==="; dig DS protestayush.lol +dnssec +noall +answer +authority
+          for r in 1.1.1.1 8.8.8.8 9.9.9.9 208.67.222.222; do
+            echo "=== RESOLVER $r NS ==="; dig @$r NS protestayush.lol +noall +answer
+            echo "=== RESOLVER $r A ==="; dig @$r A protestayush.lol +noall +answer
+            echo "=== RESOLVER $r AAAA ==="; dig @$r AAAA protestayush.lol +noall +answer
+          done
+          echo "=== AUTH CF A ==="; dig @ed.ns.cloudflare.com A protestayush.lol +noall +answer
+          echo "=== AUTH CF WWW ==="; dig @ed.ns.cloudflare.com A www.protestayush.lol +noall +answer
+          echo "=== ROOT HTTPS ==="; curl -4 -sSvkI --max-time 20 https://protestayush.lol/ 2>&1 | sed -n '1,100p'
+          echo "=== WWW HTTPS ==="; curl -4 -sSvkI --max-time 20 https://www.protestayush.lol/ 2>&1 | sed -n '1,100p'
+          echo "=== ROOT TLS VERIFY ==="; echo | openssl s_client -connect protestayush.lol:443 -servername protestayush.lol -verify_return_error 2>&1 | sed -n '1,80p'
+          echo "=== ROOT HEALTH ==="; curl -4 -sS --max-time 20 https://protestayush.lol/api/health; echo
