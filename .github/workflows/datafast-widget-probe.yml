@@ -12,13 +12,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Probe DataFast public widget URLs
+      - name: Probe DataFast widget route names
         shell: bash
         run: |
           set +e
-          for path in             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/recent"             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/visitors"             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/pageviews"             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/online"; do
-            echo "=== $path ==="
-            curl -sS -L -o /tmp/out -w "HTTP:%{http_code} CT:%{content_type}\n" "https://datafa.st/$path"
-            head -c 700 /tmp/out
-            echo
+          id="dfid_1YPvnaXAWHHLTYaWUGFMj"
+          for slug in recent realtime live overview summary today stats traffic pageviews visitors countries devices referrers sources revenue goals browsers os map counter count analytics; do
+            code=$(curl -sS -L -o /tmp/out -w "%{http_code}" "https://datafa.st/widgets/$id/$slug")
+            printf "%-12s %s\n" "$slug" "$code"
+            if [ "$code" = "200" ]; then
+              tr '\n' ' ' < /tmp/out | sed -E 's/<script[^>]*>.*<\/script>//g; s/<style[^>]*>.*<\/style>//g; s/<[^>]+>/ /g; s/[[:space:]]+/ /g' | head -c 500
+              echo
+            fi
           done
