@@ -12,13 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Inspect public DataFast share page
+      - name: Check DataFast widget embed headers
         shell: bash
         run: |
           set +e
-          curl -sS -L "https://datafa.st/share/6ac1b7f9dba3b3e23525f59b" -o /tmp/share
-          echo "=== size ==="; wc -c /tmp/share
-          echo "=== API / data clues ==="
-          grep -Eo '.{0,120}(api/|pageviews|visitors|unique|online|realtime|websiteId|website_id|shareId|total|views|sessions).{0,180}' /tmp/share | head -n 120
-          echo "=== absolute URLs ==="
-          grep -Eo 'https?[^" ]+' /tmp/share | head -n 80
+          for u in             "https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/analytics"             "https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/realtime"             "https://datafa.st/share/6ac1b7f9dba3b3e23525f59b"; do
+            echo "=== $u ==="
+            curl -sS -I -L "$u" | grep -Ei 'HTTP/|x-frame-options|content-security-policy|frame-ancestors|content-type|cache-control'
+          done
