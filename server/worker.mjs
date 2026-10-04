@@ -201,10 +201,32 @@ async function applyRefundWebhook(db,event){
   return {matched:true,id:refund.id,status};
 }
 
+let dataFastStatsCache={expiresAt:0,value:null};
+async function publicDataFastStats(){
+  const now=Date.now();
+  if(dataFastStatsCache.value&&dataFastStatsCache.expiresAt>now)return dataFastStatsCache.value;
+  const websiteId='6ac1b7f9dba3b3e23525f59b';
+  const base='https://datafa.st/api/analytics';
+  const [realtimeResponse,analyticsResponse]=await Promise.all([
+    fetch(base+'/realtime?websiteId='+websiteId+'&publicView=1',{headers:{accept:'application/json'}}),
+    fetch(base+'/main?websiteId='+websiteId+'&period=all&isPublic=true&publicView=1',{headers:{accept:'application/json'}})
+  ]);
+  if(!realtimeResponse.ok||!analyticsResponse.ok)throw new ApiError(502,'DATAFAST_UNAVAILABLE','Public analytics are temporarily unavailable.');
+  const [realtime,analytics]=await Promise.all([realtimeResponse.json(),analyticsResponse.json()]);
+  const online=Math.max(0,Number(realtime?.count)||0);
+  const views=(Array.isArray(analytics?.processedData)?analytics.processedData:[])
+    .reduce((sum,row)=>sum+Math.max(0,Number(row?.pageviews)||0),0);
+  const value={online,views,updated_at:new Date().toISOString()};
+  dataFastStatsCache={expiresAt:now+30000,value};
+  return value;
+}
+
 async function route(request,env,ctx){
   const url=new URL(request.url);
   const path=url.pathname;
   const method=request.method.toUpperCase();
+
+  if(path==='/api/datafast-stats'&&method==='GET')return ok(await publicDataFastStats());
 
   if(path==='/api/health'&&method==='GET'){
     let settings={};
