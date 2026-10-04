@@ -1,0 +1,21 @@
+name: DataFast Period Probe
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Probe periods
+        shell: bash
+        run: |
+          set +e
+          id="6ac1b7f9dba3b3e23525f59b"
+          for p in all alltime 1y 365d 12m 30d today; do
+            echo "=== $p ==="
+            curl --max-time 8 -sS -L -w "\nHTTP=%{http_code}\n" "https://datafa.st/api/analytics/main?websiteId=$id&period=$p&isPublic=true&publicView=1" | head -c 2200
+            echo
+          done
