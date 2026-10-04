@@ -12,18 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Inspect valid DataFast widgets
+      - name: Inspect public DataFast share page
         shell: bash
         run: |
           set +e
-          id="dfid_1YPvnaXAWHHLTYaWUGFMj"
-          for slug in recent realtime analytics; do
-            echo "=== $slug ==="
-            curl -sS -L "https://datafa.st/widgets/$id/$slug" -o "/tmp/$slug"
-            echo "--- text clues ---"
-            grep -Eo '.{0,80}(Users|Visitors|visitors|Pageviews|pageviews|Revenue|revenue|Online|online|Today|today|Last|last|Public|public).{0,120}' "/tmp/$slug" | head -n 40
-            echo "--- urls ---"
-            grep -Eo 'https?[^" ]+' "/tmp/$slug" | head -n 20
-            echo "--- size ---"
-            wc -c "/tmp/$slug"
-          done
+          curl -sS -L "https://datafa.st/share/6ac1b7f9dba3b3e23525f59b" -o /tmp/share
+          echo "=== size ==="; wc -c /tmp/share
+          echo "=== API / data clues ==="
+          grep -Eo '.{0,120}(api/|pageviews|visitors|unique|online|realtime|websiteId|website_id|shareId|total|views|sessions).{0,180}' /tmp/share | head -n 120
+          echo "=== absolute URLs ==="
+          grep -Eo 'https?[^" ]+' /tmp/share | head -n 80
