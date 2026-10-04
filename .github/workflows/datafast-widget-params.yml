@@ -9,13 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Inspect widget HTML parameters
+      - name: Check public website-id widget routes
         shell: bash
         run: |
           set +e
-          u="https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/analytics"
-          curl -sS -L "$u" -o /tmp/w
-          echo "=== around NaNpx ==="
-          grep -Eo '.{0,500}NaNpx.{0,700}' /tmp/w | head -n 10
-          echo "=== param clues ==="
-          grep -Eo '.{0,250}(searchParams|width|height|fontSize|background|theme|color|metric|period|size).{0,500}' /tmp/w | head -n 80
+          id="6ac1b7f9dba3b3e23525f59b"
+          for slug in analytics recent realtime; do
+            u="https://datafa.st/widgets/$id/$slug"
+            echo "=== $u ==="
+            curl -sS -L "$u" -o "/tmp/$slug"
+            echo "status/size"; curl -sS -o /dev/null -w "%{http_code} %{size_download}\n" "$u"
+            grep -Eo '.{0,180}(Users in Last 30 Minutes|visitors|pageviews|Pageviews|Online|online|Today|today|NaNpx).{0,320}' "/tmp/$slug" | head -n 25
+          done
