@@ -1,0 +1,24 @@
+name: DataFast Widget Probe
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe DataFast public widget URLs
+        shell: bash
+        run: |
+          set +e
+          for path in             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/recent"             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/visitors"             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/pageviews"             "widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/online"; do
+            echo "=== $path ==="
+            curl -sS -L -o /tmp/out -w "HTTP:%{http_code} CT:%{content_type}\n" "https://datafa.st/$path"
+            head -c 700 /tmp/out
+            echo
+          done
