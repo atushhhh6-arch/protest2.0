@@ -1,0 +1,21 @@
+name: DataFast Widget Params Probe
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect widget HTML parameters
+        shell: bash
+        run: |
+          set +e
+          u="https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/analytics"
+          curl -sS -L "$u" -o /tmp/w
+          echo "=== around NaNpx ==="
+          grep -Eo '.{0,500}NaNpx.{0,700}' /tmp/w | head -n 10
+          echo "=== param clues ==="
+          grep -Eo '.{0,250}(searchParams|width|height|fontSize|background|theme|color|metric|period|size).{0,500}' /tmp/w | head -n 80
