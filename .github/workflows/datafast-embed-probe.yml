@@ -7,22 +7,15 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Discover public dashboard API fast
+      - name: Test public DataFast JSON endpoints
         shell: bash
         run: |
           set +e
-          share="https://datafa.st/share/6ac1b7f9dba3b3e23525f59b"
-          curl --max-time 10 -sS -L "$share" -o /tmp/share
-          echo "=== around domain ==="
-          grep -Eo '.{0,500}protestayush\.lol.{0,1200}' /tmp/share | head -n 10
-          echo "=== ids ==="
-          grep -Eo '[0-9a-f]{24}' /tmp/share | sort -u | head -n 30
-          wid=$(grep -Eo '[0-9a-f]{24}' /tmp/share | sort -u | grep -v '^6ac1b7f9dba3b3e23525f59b$' | head -n 1)
-          echo "WID=$wid"
-          for u in             "https://datafa.st/analytics/realtime?websiteId=$wid&publicView=1"             "https://datafa.st/api/analytics/realtime?websiteId=$wid&publicView=1"             "https://datafa.st/api/v1/analytics/realtime?websiteId=$wid&publicView=1"             "https://datafa.st/analytics/main?websiteId=$wid&period=30d&isPublic=true&publicView=1"             "https://datafa.st/api/analytics/main?websiteId=$wid&period=30d&isPublic=true&publicView=1"; do
+          id="6ac1b7f9dba3b3e23525f59b"
+          for u in             "https://datafa.st/api/analytics/realtime?websiteId=$id&publicView=1"             "https://datafa.st/api/analytics/realtime/map?websiteId=$id&publicView=1"             "https://datafa.st/api/analytics/main?websiteId=$id&period=30d&isPublic=true&publicView=1"             "https://datafa.st/api/analytics/main?websiteId=$id&period=today&isPublic=true&publicView=1"; do
               echo "=== $u ==="
-              curl --max-time 5 -sS -L -w "\nHTTP=%{http_code}\n" "$u" | head -c 1800
+              curl --max-time 8 -sS -L -w "\nHTTP=%{http_code}\n" "$u" | head -c 3500
               echo
           done
