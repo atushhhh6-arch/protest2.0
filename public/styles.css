@@ -220,3 +220,12 @@
   .sponsors-grid.gravity-active .wall-logo-frame{width:78px!important;height:78px!important}
   .sponsors-grid.gravity-active .wall-logo img{max-width:60px!important;max-height:60px!important}
 }
+
+
+/* DataFast public analytics badge: desktop position matches the open space left of the hero. */
+.datafast-badge-shell{position:absolute;top:116px;left:32px;width:318px;height:44px;z-index:20;overflow:hidden;border-radius:999px;background:#fff;border:1px solid #dddcd6;box-shadow:0 1px 2px #00000008}
+.datafast-badge-frame{display:block;width:100%;height:100%;border:0;background:transparent;pointer-events:none}
+.datafast-badge-link{position:absolute;inset:0;z-index:2;border-radius:999px;text-decoration:none}
+.datafast-badge-link:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+@media(max-width:1250px){.datafast-badge-shell{position:relative;top:auto;left:auto;width:min(318px,calc(100% - 32px));height:44px;margin:18px auto 0}}
+@media(max-width:600px){.datafast-badge-shell{margin-top:12px;height:42px}}
