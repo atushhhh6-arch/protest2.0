@@ -1,3 +1,4 @@
+// Live public DataFast counters; stats link opens the public dashboard.
 (()=>{
   const online=document.getElementById('datafast-online');
   const views=document.getElementById('datafast-views');
