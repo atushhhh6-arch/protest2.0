@@ -1,0 +1,21 @@
+name: DataFast Public Probe
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe public DataFast URLs
+        shell: bash
+        run: |
+          set +e
+          for u in             "https://datafa.st/share/dfid_1YPvnaXAWHHLTYaWUGFMj"             "https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/recent"             "https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/visitors"             "https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/pageviews"; do
+            echo "=== $u ==="
+            curl -L -sS -D - -o /tmp/body --max-time 15 "$u" | sed -n '1,30p'
+            echo "--- body ---"
+            head -c 500 /tmp/body; echo
+          done
