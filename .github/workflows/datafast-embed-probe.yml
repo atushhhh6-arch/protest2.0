@@ -9,17 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Discover widget embed parameter format
+      - name: Test DataFast widget size parameters
         shell: bash
         run: |
           set +e
-          curl -sS -L "https://datafa.st/share/6ac1b7f9dba3b3e23525f59b" -o /tmp/share.html
-          grep -Eo '/_next/static/chunks/[^"]+\.js' /tmp/share.html | sort -u > /tmp/chunks.txt
-          mkdir -p /tmp/chunks
-          i=0
-          while read -r p; do
-            i=$((i+1))
-            curl -sS -L "https://datafa.st$p" -o "/tmp/chunks/$i.js"
-          done < /tmp/chunks.txt
-          echo "=== widget URL builders ==="
-          grep -rhoE '.{0,500}(widgets/|/widgets|widgetType|widgetId|fontSize|NaNpx|iframe|embedCode).{0,900}' /tmp/chunks | head -n 220
+          base="https://datafa.st/widgets/6ac1b7f9dba3b3e23525f59b/realtime"
+          for q in "" "?theme=light" "?width=174&height=44" "?w=174&h=44" "?theme=light&width=174&height=44" "?theme=light&w=174&h=44" "?size=174x44" "?theme=light&size=174x44"; do
+            echo "=== $q ==="
+            curl -sS -L "$base$q" -o /tmp/w
+            printf "NaNpx count: "; grep -o "NaNpx" /tmp/w | wc -l
+            grep -Eo 'style="font-size:[^"]+"' /tmp/w | head -n 8
+          done
