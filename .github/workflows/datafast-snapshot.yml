@@ -1,0 +1,33 @@
+name: DataFast Snapshot Probe
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Inspect public DataFast HTML
+        shell: bash
+        run: |
+          set +e
+          curl -LsS "https://datafa.st/widgets/dfid_1YPvnaXAWHHLTYaWUGFMj/recent" -o /tmp/recent.html
+          curl -LsS "https://datafa.st/share/dfid_1YPvnaXAWHHLTYaWUGFMj" -o /tmp/share.html
+          echo "=== RECENT TEXT ==="
+          python3 - <<'PY'
+          import re, html
+          for p in ['/tmp/recent.html','/tmp/share.html']:
+              s=open(p,encoding='utf-8').read()
+              s=re.sub(r'<script[\s\S]*?</script>',' ',s,flags=re.I)
+              s=re.sub(r'<style[\s\S]*?</style>',' ',s,flags=re.I)
+              s=re.sub(r'<[^>]+>','\n',s)
+              s=html.unescape(s)
+              print('\nFILE',p)
+              for line in [x.strip() for x in s.splitlines() if x.strip()]:
+                  if re.search(r'visitor|view|user|today|online|public|dashboard|private|recent|country|page',line,re.I):
+                      print(line[:500])
+          PY
+          echo "=== SHARE RAW DATA CLUES ==="
+          grep -oEi '.{0,100}(pageviews|pageViews|visitors|sessions|realtime|isPublicDashboardEnabled|isPublicDataEnabled).{0,180}' /tmp/share.html | head -n 120 || true
