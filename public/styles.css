@@ -234,3 +234,18 @@
 @media(max-width:1250px){.datafast-badge-shell{position:relative;top:auto;left:auto;width:max-content;max-width:calc(100% - 32px);min-width:0;height:46px;margin:18px auto 0}}
 @media(max-width:600px){.datafast-badge-shell{margin-top:12px;max-width:calc(100% - 24px);height:44px;padding:0 13px;gap:6px;font-size:12px}}
 /* DataFast badge links to the public analytics dashboard. */
+
+
+/* Public sponsor demo previews: visual only, never counted as claimed sponsorships. */
+.portrait-stage .spot.demo-spot{padding:4px;border-style:dashed;background:#fffefbe8}
+.portrait-stage .spot.demo-spot img{display:block;width:94%;max-width:94%;height:72%;object-fit:contain}
+.portrait-stage .spot.demo-spot .demo-chip{position:absolute;top:4px;right:4px;margin:0;padding:3px 5px;border-radius:999px;background:#171717;color:#fff;font:700 clamp(6px,1.25cqw,9px)/1 var(--body);letter-spacing:.08em}
+.portrait-stage .spot.demo-spot:hover,.portrait-stage .spot.demo-spot:focus-visible{background:#fff;border-color:#171717;box-shadow:0 0 0 3px #17171718}
+.demo-wall-logo{position:relative;border:1px dashed #bbb9b0!important;background:#fafaf6!important}
+.demo-wall-logo::after{content:"DEMO";position:absolute;top:6px;right:6px;padding:3px 6px;border-radius:999px;background:#171717;color:#fff;font:700 8px/1 var(--body);letter-spacing:.08em}
+.demo-wall-logo>span{font-weight:700;color:#777!important}
+.demo-directory{background:#fbfbf7}
+.demo-directory .directory-status small{color:#111;font-weight:800}
+.demo-directory .directory-next{color:#777}
+.demo-disclosure{font-size:12px!important;line-height:1.45!important;color:var(--muted)!important;margin:6px 0 0!important}
+.sponsor-reference .profile-owner .profile-link{color:#ff9c87}
