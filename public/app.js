@@ -6,6 +6,18 @@ const $=s=>document.querySelector(s);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement',sharedBackend=false,backendConfig={available:false,bookings_open:false,payment_environment:''},checkoutPending=false;
 const seenProfiles=new Set();
+const DEMO_PROFILE={
+  profileId:'demo-chatgpt',
+  brand:'ChatGPT',
+  owner:'OpenAI',
+  description:'DEMO PREVIEW — ChatGPT is not a sponsor or affiliated with this project. This sample shows how a brand profile, website, X handle and rectangular T-shirt placement will appear.',
+  website:'https://chatgpt.com/',
+  x:'@OpenAI',
+  demo:true,
+  views:0,
+  logo:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260"><rect width="900" height="260" rx="24" fill="white"/><text x="450" y="174" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="142" font-weight="700" letter-spacing="-5" fill="#111">ChatGPT</text></svg>`)
+};
+const DEMO_SPOTS={F03:DEMO_PROFILE,B03:DEMO_PROFILE};
 const state=()=>model.auction;
 function show(dialog,origin){dialog._opener=origin||document.activeElement;if(!dialog.open)dialog.showModal();dialog.scrollTop=0;requestAnimationFrame(()=>{dialog.scrollTop=0;});document.body.classList.add('modal-open');}
 function commit(next){model=next;storageProblem='';render();return true;}
@@ -14,9 +26,9 @@ function linksFor(profile,target){target.replaceChildren();if(profile.website){t
 function imageFor(p){const img=el('img');img.src=p.logo;img.alt=p.brand+' logo';return img;}
 function revealSpot(id){document.querySelector('[data-view="both"]').click();const button=document.querySelector(`[data-spot="${id}"]`);button.scrollIntoView({behavior:'smooth',block:'center'});button.focus({preventScroll:true});button.classList.remove('spot-highlight');void button.offsetWidth;button.classList.add('spot-highlight');}
 function render(){const current=state();$('#sponsor-total').textContent=money(total(current));$('#spots-filled').textContent=Object.keys(current.spots).length+' / 12';const summary=document.querySelectorAll('.auction-summary>div');summary[0].querySelector('span').textContent='SPONSOR TOTAL';summary[1].querySelector('span').textContent='CONFIRMED SPOTS';summary[0].querySelector('small').textContent='Current winning sponsorship amounts';$('.activity-head span').textContent='SPONSOR ACTIVITY';
-for(const b of document.querySelectorAll('[data-spot]')){const id=b.dataset.spot,p=current.spots[id];b.replaceChildren();b.classList.toggle('occupied',Boolean(p));if(p){b.append(imageFor(p));b.title=p.brand+' · View profile';b.setAttribute('aria-label',id+' · View '+p.brand+' profile');}else{b.append(el('span','＋ '+id),el('strong',money(placements[id].base)));b.title='';b.setAttribute('aria-label',id+' · '+placements[id].name+' · '+money(placements[id].base));}}
-const wall=$('#sponsors-grid');const entries=Object.entries(current.spots);wall.classList.toggle('has-brands',entries.length>0);const gravityLocked=wall.classList.contains('gravity-active');if(!gravityLocked){const previousIds=new Map([...wall.children].filter(n=>n.dataset?.slot).map(n=>[n.dataset.slot,n.dataset.claim]));wall.replaceChildren();for(const [id,p] of entries){const button=el('button',undefined,'wall-logo');button.type='button';button.dataset.slot=id;button.dataset.claim=p.id;button.setAttribute('aria-label','View '+p.brand+' on '+placements[id].name);if(previousIds.get(id)!==p.id)button.classList.add('new-claim');const frame=el('div',undefined,'wall-logo-frame');frame.append(imageFor(p));button.append(frame,el('strong',p.brand),el('span',placements[id].location+' · '+id));button.onclick=()=>openProfile(p,button,id);wall.append(button);}if(!entries.length){const empty=el('div',undefined,'wall-empty');empty.append(el('span','YOUR BRAND GOES HERE'),el('p','Claim a spot to join the wall.'));wall.append(empty);}}
-for(const side of ['front','back']){const list=$('#'+side+'-spot-list');list.replaceChildren();for(const [id,placement] of Object.entries(placements).filter(([id])=>id.startsWith(side==='front'?'F':'B'))){const owner=current.spots[id],row=el('button',undefined,'directory-row');row.type='button';const title=el('div',undefined,'directory-row-head');title.append(el('span',id,'directory-code'),el('strong',placement.name));const status=el('span',undefined,'directory-status');if(owner){status.append(imageFor(owner),el('b',owner.brand),el('small','CLAIMED'));row.classList.add('claimed');}else status.append(el('b',money(placement.base)),el('small','AVAILABLE'));title.append(status);row.append(title,el('p',placement.description));if(owner)row.append(el('span','Next takeover '+money(minimum(current,id)),'directory-next'));row.onclick=()=>owner?openProfile(owner,row,id):openSpot(id,row);list.append(row);}}
+for(const b of document.querySelectorAll('[data-spot]')){const id=b.dataset.spot,p=current.spots[id],demo=!p?DEMO_SPOTS[id]:null;b.replaceChildren();b.classList.toggle('occupied',Boolean(p));b.classList.toggle('demo-spot',Boolean(demo));if(p){b.append(imageFor(p));b.title=p.brand+' · View profile';b.setAttribute('aria-label',id+' · View '+p.brand+' profile');}else if(demo){const img=imageFor(demo);img.classList.add('demo-logo');b.append(img,el('small','DEMO','demo-chip'));b.title='Demo preview · '+demo.brand+' · Spot is still available';b.setAttribute('aria-label',id+' · Demo preview of '+demo.brand+' · Spot is still available');}else{b.append(el('span','＋ '+id),el('strong',money(placements[id].base)));b.title='';b.setAttribute('aria-label',id+' · '+placements[id].name+' · '+money(placements[id].base));}}
+const wall=$('#sponsors-grid');const entries=Object.entries(current.spots);const demos=Object.entries(DEMO_SPOTS).filter(([id])=>!current.spots[id]);const wallEntries=[...entries.map(([id,p])=>[id,p,false]),...demos.map(([id,p])=>[id,p,true])];wall.classList.toggle('has-brands',wallEntries.length>0);const gravityLocked=wall.classList.contains('gravity-active');if(!gravityLocked){const previousIds=new Map([...wall.children].filter(n=>n.dataset?.slot).map(n=>[n.dataset.slot,n.dataset.claim]));wall.replaceChildren();for(const [id,p,isDemo] of wallEntries){const button=el('button',undefined,'wall-logo');button.type='button';button.dataset.slot=id;button.dataset.claim=isDemo?'demo-'+id:p.id;button.setAttribute('aria-label',isDemo?'View demo preview of '+p.brand+' on '+placements[id].name:'View '+p.brand+' on '+placements[id].name);if(isDemo)button.classList.add('demo-wall-logo');else if(previousIds.get(id)!==p.id)button.classList.add('new-claim');const frame=el('div',undefined,'wall-logo-frame');frame.append(imageFor(p));button.append(frame,el('strong',p.brand),el('span',isDemo?'DEMO PREVIEW · '+id:placements[id].location+' · '+id));button.onclick=()=>openProfile(p,button,id,!isDemo);wall.append(button);}if(!wallEntries.length){const empty=el('div',undefined,'wall-empty');empty.append(el('span','YOUR BRAND GOES HERE'),el('p','Claim a spot to join the wall.'));wall.append(empty);}}
+for(const side of ['front','back']){const list=$('#'+side+'-spot-list');list.replaceChildren();for(const [id,placement] of Object.entries(placements).filter(([id])=>id.startsWith(side==='front'?'F':'B'))){const owner=current.spots[id],demo=!owner?DEMO_SPOTS[id]:null,row=el('button',undefined,'directory-row');row.type='button';const title=el('div',undefined,'directory-row-head');title.append(el('span',id,'directory-code'),el('strong',placement.name));const status=el('span',undefined,'directory-status');if(owner){status.append(imageFor(owner),el('b',owner.brand),el('small','CLAIMED'));row.classList.add('claimed');}else if(demo){status.append(imageFor(demo),el('b',demo.brand),el('small','DEMO'));row.classList.add('demo-directory');}else status.append(el('b',money(placement.base)),el('small','AVAILABLE'));title.append(status);row.append(title,el('p',placement.description));if(owner)row.append(el('span','Next takeover '+money(minimum(current,id)),'directory-next'));else if(demo)row.append(el('span','Preview only · spot still available from '+money(placement.base),'directory-next'));row.onclick=()=>owner?openProfile(owner,row,id):demo?openProfile(demo,row,id,false):openSpot(id,row);list.append(row);}}
 const list=$('#activity-list');list.replaceChildren();for(const event of current.history.slice(0,12)){const li=el('li');const b=el('button',event.brand,'transaction-brand');const p=model.profiles?.[event.profileId]||Object.values(model.profiles||{}).find(p=>p.brand===event.brand);if(p)b.onclick=()=>openProfile(p,b);else b.disabled=true;li.append(
   b,
   el('span',event.slot+' · '+money(event.amount)),
@@ -27,7 +39,9 @@ const list=$('#activity-list');list.replaceChildren();for(const event of current
 const nav=$('#my-profile');nav.replaceChildren(el('span','My Profile'));nav.setAttribute('aria-label','My Profile');
 if(storageProblem)$('#preview-feedback').textContent=storageProblem;}
 function openProfile(profile,origin,spot='',trackView=true){
+  const isDemo=Boolean(profile.demo);
   profileSlot=spot;
+  if(isDemo)trackView=false;
   if(trackView){
     if(sharedBackend){
       recordSharedView(profile.profileId).then(result=>{
@@ -49,16 +63,18 @@ function openProfile(profile,origin,spot='',trackView=true){
     }
   }
   const activity=profileActivity(model,profile);
-  const sponsor=spot?model.auction.spots[spot]:null;
-  $('#profile-position').textContent=spot?placements[spot].name:'Sponsor profile';
+  const sponsor=!isDemo&&spot?model.auction.spots[spot]:null;
+  $('#profile-position').textContent=spot?placements[spot].name+(isDemo?' · DEMO PREVIEW':''):'Sponsor profile';
   const views=spot?(Number(sponsor?.views)||0):(Number(model.profileViews?.[profileKey(profile)])||0);
-  $('#profile-views').textContent=views.toLocaleString()+' views';
-  $('#profile-sponsored').textContent=money(sponsor?.amount??activity.total);
+  $('#profile-views').textContent=isDemo?'Preview only':views.toLocaleString()+' views';
+  const priceLabel=document.querySelector('.sponsored-price span');
+  priceLabel.textContent=isDemo?'Spot starts at':'Sponsored for';
+  $('#profile-sponsored').textContent=isDemo&&spot?money(placements[spot].base):money(sponsor?.amount??activity.total);
   $('#profile-logo').src=profile.logo;
   $('#profile-logo').alt=profile.brand+' logo';
   $('#profile-title').textContent=profile.brand;
   const by=$('#profile-owner');
-  by.replaceChildren(el('span','by '));
+  by.replaceChildren(el('span',isDemo?'demo profile · ':'by '));
   if(/^@?[A-Za-z0-9_]{1,15}$/.test(profile.x||'')){
     const handle=profile.x.replace(/^@/,'');
     by.append(link('@'+handle,'https://x.com/'+handle));
@@ -81,7 +97,7 @@ function openProfile(profile,origin,spot='',trackView=true){
   }
   const action=$('#profile-takeover');
   action.hidden=!spot;
-  if(spot)action.textContent='Take over '+spot+' · '+money(minimum(model.auction,spot));
+  if(spot)action.textContent=isDemo?'Claim '+spot+' · '+money(placements[spot].base):'Take over '+spot+' · '+money(minimum(model.auction,spot));
   show($('#profile-dialog'),origin?.isConnected?origin:(spot?document.querySelector('[data-spot="'+spot+'"]'):$('#my-profile')));
 }
 $('#profile-takeover').onclick=()=>{const id=profileSlot;$('#profile-dialog').close();if(id)openSpot(id,document.querySelector('[data-spot="'+id+'"]'));};
@@ -206,7 +222,7 @@ $('#bid-form').onsubmit=async e=>{
     checkoutPending=false;updatePay();$('#bid-error').textContent=error.message||'Could not start checkout.';
   }
 };
-for(const b of document.querySelectorAll('[data-spot]'))b.onclick=()=>{const p=state().spots[b.dataset.spot];if(p)openProfile(p,b,b.dataset.spot);else openSpot(b.dataset.spot,b);};
+for(const b of document.querySelectorAll('[data-spot]'))b.onclick=()=>{const id=b.dataset.spot,p=state().spots[id],demo=!p?DEMO_SPOTS[id]:null;if(p)openProfile(p,b,id);else if(demo)openProfile(demo,b,id,false);else openSpot(id,b);};
 for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>{document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));document.querySelectorAll('[data-side]').forEach(card=>card.hidden=button.dataset.view!=='both'&&card.dataset.side!==button.dataset.view);$('.model-grid').classList.toggle('single',button.dataset.view!=='both');};
 for(const dialog of document.querySelectorAll('dialog')){dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});dialog.addEventListener('close',()=>{if(dialog.id==='spot-dialog'&&!dialog.open)clearLogo();if(dialog.id==='edit-profile-dialog'&&!dialog.open){++uploadTicket;editor.clear();}const top=[...document.querySelectorAll('dialog[open]')].at(-1);if(!top)document.body.classList.remove('modal-open');if(dialog._opener?.isConnected&&(!top||top.contains(dialog._opener)))dialog._opener.focus();});}
 function closeAllDialogs(){for(const d of document.querySelectorAll('dialog[open]'))d.close();}
