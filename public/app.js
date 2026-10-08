@@ -6,18 +6,7 @@ const $=s=>document.querySelector(s);
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;};
 let model=freshPreview(),selected='',expectedOwner=null,logo='',logoSource='',uploadPending=false,uploadTicket=0,storageProblem='',profileSlot='',editingKey='',editLogo='',cropTarget='placement',sharedBackend=false,backendConfig={available:false,bookings_open:false,payment_environment:''},checkoutPending=false;
 const seenProfiles=new Set();
-const DEMO_PROFILE={
-  profileId:'demo-chatgpt',
-  brand:'ChatGPT',
-  owner:'OpenAI',
-  description:'DEMO PREVIEW — ChatGPT is not a sponsor or affiliated with this project. This sample shows how a brand profile, website, X handle and rectangular T-shirt placement will appear.',
-  website:'https://chatgpt.com/',
-  x:'@OpenAI',
-  demo:true,
-  views:0,
-  logo:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260"><rect width="900" height="260" rx="24" fill="white"/><text x="450" y="174" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="142" font-weight="700" letter-spacing="-5" fill="#111">ChatGPT</text></svg>`)
-};
-const DEMO_SPOTS={F03:DEMO_PROFILE,B03:DEMO_PROFILE};
+const DEMO_SPOTS={};
 const state=()=>model.auction;
 function show(dialog,origin){dialog._opener=origin||document.activeElement;if(!dialog.open)dialog.showModal();dialog.scrollTop=0;requestAnimationFrame(()=>{dialog.scrollTop=0;});document.body.classList.add('modal-open');}
 function commit(next){model=next;storageProblem='';render();return true;}
